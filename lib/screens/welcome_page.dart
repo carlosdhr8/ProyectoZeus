@@ -9,7 +9,11 @@ class WelcomePage extends StatefulWidget {
   final Map userData;
   final List mascotas;
 
-  const WelcomePage({super.key, required this.userData, required this.mascotas});
+  const WelcomePage({
+    super.key,
+    required this.userData,
+    required this.mascotas,
+  });
 
   @override
   State<WelcomePage> createState() => _WelcomePageState();
@@ -40,9 +44,9 @@ class _WelcomePageState extends State<WelcomePage> {
 
       if (imagen == null) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Subiendo imagen...")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Subiendo imagen...")));
 
       var request = http.MultipartRequest(
         'POST',
@@ -68,13 +72,18 @@ class _WelcomePageState extends State<WelcomePage> {
 
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("¡Foto actualizada!"), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text("¡Foto actualizada!"),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         throw Exception("Error ${response.statusCode}: ${response.body}");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -87,19 +96,38 @@ class _WelcomePageState extends State<WelcomePage> {
       builder: (context) => AlertDialog(
         title: const Text("Asignar Plan (Modo Admin)"),
         content: DropdownButtonFormField<String>(
-          value: ['Sin Plan', 'Basico', 'Intermedio', 'Avanzado'].contains(planSeleccionado) ? planSeleccionado : 'Sin Plan',
-          items: ['Sin Plan', 'Basico', 'Intermedio', 'Avanzado'].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+          value:
+              [
+                'Sin Plan',
+                'Basico',
+                'Intermedio',
+                'Avanzado',
+              ].contains(planSeleccionado)
+              ? planSeleccionado
+              : 'Sin Plan',
+          items: [
+            'Sin Plan',
+            'Basico',
+            'Intermedio',
+            'Avanzado',
+          ].map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
           onChanged: (val) => planSeleccionado = val,
           decoration: const InputDecoration(labelText: "Selecciona el plan"),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
           ElevatedButton(
             onPressed: () async {
               final response = await http.post(
                 Uri.parse("http://18.223.214.78:8000/update_plan"),
                 headers: {"Content-Type": "application/json"},
-                body: jsonEncode({"pet_id": petId, "tipo_plan": planSeleccionado}),
+                body: jsonEncode({
+                  "pet_id": petId,
+                  "tipo_plan": planSeleccionado,
+                }),
               );
               if (response.statusCode == 200) {
                 setState(() {
@@ -109,11 +137,17 @@ class _WelcomePageState extends State<WelcomePage> {
                   }
                 });
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Plan $planSeleccionado asignado exitosamente")));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      "Plan $planSeleccionado asignado exitosamente",
+                    ),
+                  ),
+                );
               }
             },
             child: const Text("Confirmar"),
-          )
+          ),
         ],
       ),
     );
@@ -135,17 +169,45 @@ class _WelcomePageState extends State<WelcomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre")),
-              TextField(controller: razaCtrl, decoration: const InputDecoration(labelText: "Raza")),
-              TextField(controller: tamanoCtrl, decoration: const InputDecoration(labelText: "Tamaño (Pequeño/Mediano/Grande)")),
-              TextField(controller: pesoCtrl, decoration: const InputDecoration(labelText: "Peso (kg)"), keyboardType: TextInputType.number),
-              TextField(controller: edadCtrl, decoration: const InputDecoration(labelText: "Edad"), keyboardType: TextInputType.number),
-              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: "Breve Descripción"), maxLines: 2),
+              TextField(
+                controller: nombreCtrl,
+                decoration: const InputDecoration(labelText: "Nombre"),
+              ),
+              TextField(
+                controller: razaCtrl,
+                decoration: const InputDecoration(labelText: "Raza"),
+              ),
+              TextField(
+                controller: tamanoCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Tamaño (Pequeño/Mediano/Grande)",
+                ),
+              ),
+              TextField(
+                controller: pesoCtrl,
+                decoration: const InputDecoration(labelText: "Peso (kg)"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: edadCtrl,
+                decoration: const InputDecoration(labelText: "Edad"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Breve Descripción",
+                ),
+                maxLines: 2,
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
           ElevatedButton(
             onPressed: () async {
               if (nombreCtrl.text.isEmpty) return; // Validación simple
@@ -157,7 +219,8 @@ class _WelcomePageState extends State<WelcomePage> {
                 "peso": double.tryParse(pesoCtrl.text) ?? 0.0,
                 "descripcion": descCtrl.text,
                 "edad": int.tryParse(edadCtrl.text) ?? 0,
-                "usuario_email": _userEmail, // Enviamos el correo del dueño logueado
+                "usuario_email":
+                    _userEmail, // Enviamos el correo del dueño logueado
               };
 
               try {
@@ -169,7 +232,8 @@ class _WelcomePageState extends State<WelcomePage> {
 
                 if (response.statusCode == 200) {
                   final responseData = jsonDecode(response.body);
-                  int newId = responseData['new_id']; // Recibimos el ID desde SQL
+                  int newId =
+                      responseData['new_id']; // Recibimos el ID desde SQL
 
                   setState(() {
                     _listaMascotas.add({
@@ -178,19 +242,26 @@ class _WelcomePageState extends State<WelcomePage> {
                       "plan_mascota": "Sin Plan",
                       "foto": null,
                       "paseador": null,
-                      "dueno": widget.userData['nombre'] // Para la UI
+                      "dueno": widget.userData['nombre'], // Para la UI
                     });
                   });
 
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("¡Mascota registrada con éxito!"), backgroundColor: Colors.green));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("¡Mascota registrada con éxito!"),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text("Error: $e")));
               }
             },
             child: const Text("Guardar"),
-          )
+          ),
         ],
       ),
     );
@@ -201,12 +272,23 @@ class _WelcomePageState extends State<WelcomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Eliminar Mascota", style: TextStyle(color: Colors.red)),
-        content: Text("¿Estás seguro de que deseas borrar a $petNombre? Esta acción no se puede deshacer."),
+        title: const Text(
+          "Eliminar Mascota",
+          style: TextStyle(color: Colors.red),
+        ),
+        content: Text(
+          "¿Estás seguro de que deseas borrar a $petNombre? Esta acción no se puede deshacer.",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
               try {
                 final response = await http.delete(
@@ -218,14 +300,21 @@ class _WelcomePageState extends State<WelcomePage> {
                     _listaMascotas.removeWhere((m) => m['id'] == petId);
                   });
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mascota eliminada del sistema"), backgroundColor: Colors.redAccent));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Mascota eliminada del sistema"),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text("Error: $e")));
               }
             },
             child: const Text("Eliminar"),
-          )
+          ),
         ],
       ),
     );
@@ -233,12 +322,24 @@ class _WelcomePageState extends State<WelcomePage> {
 
   // --- FUNCIÓN DE EDITAR MASCOTA ---
   Future<void> _editarMascota(Map pet) async {
-    TextEditingController nombreCtrl = TextEditingController(text: pet['nombre'] ?? "");
-    TextEditingController razaCtrl = TextEditingController(text: pet['raza'] ?? "");
-    TextEditingController tamanoCtrl = TextEditingController(text: pet['tamano'] ?? "");
-    TextEditingController pesoCtrl = TextEditingController(text: (pet['peso'] ?? 0).toString());
-    TextEditingController edadCtrl = TextEditingController(text: (pet['edad'] ?? 0).toString());
-    TextEditingController descCtrl = TextEditingController(text: pet['descripcion'] ?? "");
+    TextEditingController nombreCtrl = TextEditingController(
+      text: pet['nombre'] ?? "",
+    );
+    TextEditingController razaCtrl = TextEditingController(
+      text: pet['raza'] ?? "",
+    );
+    TextEditingController tamanoCtrl = TextEditingController(
+      text: pet['tamano'] ?? "",
+    );
+    TextEditingController pesoCtrl = TextEditingController(
+      text: (pet['peso'] ?? 0).toString(),
+    );
+    TextEditingController edadCtrl = TextEditingController(
+      text: (pet['edad'] ?? 0).toString(),
+    );
+    TextEditingController descCtrl = TextEditingController(
+      text: pet['descripcion'] ?? "",
+    );
 
     showDialog(
       context: context,
@@ -248,17 +349,41 @@ class _WelcomePageState extends State<WelcomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre")),
-              TextField(controller: razaCtrl, decoration: const InputDecoration(labelText: "Raza")),
-              TextField(controller: tamanoCtrl, decoration: const InputDecoration(labelText: "Tamaño")),
-              TextField(controller: pesoCtrl, decoration: const InputDecoration(labelText: "Peso (kg)"), keyboardType: TextInputType.number),
-              TextField(controller: edadCtrl, decoration: const InputDecoration(labelText: "Edad"), keyboardType: TextInputType.number),
-              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: "Descripción"), maxLines: 2),
+              TextField(
+                controller: nombreCtrl,
+                decoration: const InputDecoration(labelText: "Nombre"),
+              ),
+              TextField(
+                controller: razaCtrl,
+                decoration: const InputDecoration(labelText: "Raza"),
+              ),
+              TextField(
+                controller: tamanoCtrl,
+                decoration: const InputDecoration(labelText: "Tamaño"),
+              ),
+              TextField(
+                controller: pesoCtrl,
+                decoration: const InputDecoration(labelText: "Peso (kg)"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: edadCtrl,
+                decoration: const InputDecoration(labelText: "Edad"),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: "Descripción"),
+                maxLines: 2,
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cerrar")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cerrar"),
+          ),
           ElevatedButton(
             onPressed: () async {
               Map<String, dynamic> updateData = {
@@ -266,7 +391,9 @@ class _WelcomePageState extends State<WelcomePage> {
                 "nombre": nombreCtrl.text,
                 "raza": razaCtrl.text,
                 "tamano": tamanoCtrl.text,
-                "peso": double.tryParse(pesoCtrl.text) ?? 0.0, // Coincide con UpdatePetRequest
+                "peso":
+                    double.tryParse(pesoCtrl.text) ??
+                    0.0, // Coincide con UpdatePetRequest
                 "descripcion": descCtrl.text,
                 "edad": int.tryParse(edadCtrl.text) ?? 0,
               };
@@ -280,20 +407,32 @@ class _WelcomePageState extends State<WelcomePage> {
 
                 if (response.statusCode == 200) {
                   setState(() {
-                    int idx = _listaMascotas.indexWhere((m) => m['id'] == pet['id']);
+                    int idx = _listaMascotas.indexWhere(
+                      (m) => m['id'] == pet['id'],
+                    );
                     if (idx != -1) {
                       _listaMascotas[idx].addAll(updateData);
                     }
                   });
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Datos actualizados", style: TextStyle(color: Colors.white)), backgroundColor: Colors.green));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Datos actualizados",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text("Error: $e")));
               }
             },
             child: const Text("Guardar"),
-          )
+          ),
         ],
       ),
     );
@@ -303,7 +442,9 @@ class _WelcomePageState extends State<WelcomePage> {
   Future<void> _asignarPaseadorDialog(int petId) async {
     try {
       // 1. Obtener la lista de paseadores
-      final response = await http.get(Uri.parse("http://18.223.214.78:8000/get_all_walkers"));
+      final response = await http.get(
+        Uri.parse("http://18.223.214.78:8000/get_all_walkers"),
+      );
 
       if (response.statusCode == 200) {
         List paseadores = jsonDecode(response.body);
@@ -328,65 +469,93 @@ class _WelcomePageState extends State<WelcomePage> {
                         child: Text(p['nombre'].toString()),
                       );
                     }).toList(),
-                    onChanged: (val) => setStateDialog(() => selectedPaseadorId = val),
+                    onChanged: (val) =>
+                        setStateDialog(() => selectedPaseadorId = val),
                   ),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancelar"),
+                    ),
                     ElevatedButton(
-                      onPressed: selectedPaseadorId == null ? null : () async {
-                        try {
-                          // Enviamos la petición al endpoint
-                          final assignRes = await http.post(
-                            Uri.parse("http://18.223.214.78:8000/assign_walker"), // Asegúrate que la IP sea correcta
-                            headers: {"Content-Type": "application/json"},
-                            body: jsonEncode({
-                              "pet_id": petId,
-                              "paseador_id": selectedPaseadorId
-                            }),
-                          );
+                      onPressed: selectedPaseadorId == null
+                          ? null
+                          : () async {
+                              try {
+                                // Enviamos la petición al endpoint
+                                final assignRes = await http.post(
+                                  Uri.parse(
+                                    "http://18.223.214.78:8000/assign_walker",
+                                  ), // Asegúrate que la IP sea correcta
+                                  headers: {"Content-Type": "application/json"},
+                                  body: jsonEncode({
+                                    "pet_id": petId,
+                                    "paseador_id": selectedPaseadorId,
+                                  }),
+                                );
 
-                          if (assignRes.statusCode == 200) {
-                            // Buscamos los datos del paseador seleccionado para actualizar la UI localmente
-                            var pSelected = paseadores.firstWhere((p) => p['id'].toString() == selectedPaseadorId.toString());
+                                if (assignRes.statusCode == 200) {
+                                  // Buscamos los datos del paseador seleccionado para actualizar la UI localmente
+                                  var pSelected = paseadores.firstWhere(
+                                    (p) =>
+                                        p['id'].toString() ==
+                                        selectedPaseadorId.toString(),
+                                  );
 
-                            setState(() {
-                              int idx = _listaMascotas.indexWhere((m) => m['id'] == petId);
-                              if (idx != -1) {
-                                _listaMascotas[idx]['paseador'] = {
-                                  "id": pSelected['id'],
-                                  "nombre": pSelected['nombre'],
-                                  "experiencia": pSelected['experiencia'] ?? "",
-                                  "biografia": pSelected['biografia'] ?? ""
-                                };
+                                  setState(() {
+                                    int idx = _listaMascotas.indexWhere(
+                                      (m) => m['id'] == petId,
+                                    );
+                                    if (idx != -1) {
+                                      _listaMascotas[idx]['paseador'] = {
+                                        "id": pSelected['id'],
+                                        "nombre": pSelected['nombre'],
+                                        "experiencia":
+                                            pSelected['experiencia'] ?? "",
+                                        "biografia":
+                                            pSelected['biografia'] ?? "",
+                                      };
+                                    }
+                                  });
+
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "¡Paseador asignado con éxito!",
+                                      ),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  // Aquí verás el error detallado si el backend falla
+                                  var errorData = jsonDecode(assignRes.body);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        "Error: ${errorData['detail']}",
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                print("Error en POST: $e");
                               }
-                            });
-
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("¡Paseador asignado con éxito!"), backgroundColor: Colors.green)
-                            );
-                          } else {
-                            // Aquí verás el error detallado si el backend falla
-                            var errorData = jsonDecode(assignRes.body);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Error: ${errorData['detail']}"), backgroundColor: Colors.red)
-                            );
-                          }
-                        } catch (e) {
-                          print("Error en POST: $e");
-                        }
-                      },
+                            },
                       child: const Text("Guardar"),
-                    )
+                    ),
                   ],
                 );
-              }
+              },
             );
-          }
+          },
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error de conexión: $e")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error de conexión: $e")));
     }
   }
 
@@ -443,10 +612,15 @@ class _WelcomePageState extends State<WelcomePage> {
                   itemCount: _listaMascotas.length,
                   itemBuilder: (context, index) {
                     var pet = _listaMascotas[index];
-                    bool hasFoto = pet['foto'] != null && pet['foto'].toString().trim().isNotEmpty;
+                    bool hasFoto =
+                        pet['foto'] != null &&
+                        pet['foto'].toString().trim().isNotEmpty;
 
                     return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Column(
@@ -457,12 +631,27 @@ class _WelcomePageState extends State<WelcomePage> {
                                 child: CircleAvatar(
                                   radius: 30,
                                   backgroundColor: Colors.grey.shade300,
-                                  backgroundImage: hasFoto ? MemoryImage(base64Decode(pet['foto'])) : null,
-                                  child: !hasFoto ? const Icon(Icons.camera_alt, color: Colors.white) : null,
+                                  backgroundImage: hasFoto
+                                      ? MemoryImage(base64Decode(pet['foto']))
+                                      : null,
+                                  child: !hasFoto
+                                      ? const Icon(
+                                          Icons.camera_alt,
+                                          color: Colors.white,
+                                        )
+                                      : null,
                                 ),
                               ),
-                              title: Text(pet['nombre'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                              subtitle: Text("${pet['raza']} - ${pet['edad']} años\nDueño: ${pet['dueno']}"),
+                              title: Text(
+                                pet['nombre'],
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Text(
+                                "${pet['raza']} - ${pet['edad']} años\nDueño: ${pet['dueno']}",
+                              ),
 
                               // BOTONES DE ACCIÓN (Editar y Borrar)
                               trailing: Row(
@@ -471,12 +660,21 @@ class _WelcomePageState extends State<WelcomePage> {
                                   // Botón Borrar (Visible solo si ES admin)
                                   if (_esAdmin)
                                     IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () => _borrarMascota(pet['id'], pet['nombre']),
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                      ),
+                                      onPressed: () => _borrarMascota(
+                                        pet['id'],
+                                        pet['nombre'],
+                                      ),
                                     ),
                                   // Botón Editar (Visible para todos)
                                   IconButton(
-                                    icon: const Icon(Icons.edit, color: Colors.blue),
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.blue,
+                                    ),
                                     onPressed: () => _editarMascota(pet),
                                   ),
                                 ],
@@ -488,21 +686,29 @@ class _WelcomePageState extends State<WelcomePage> {
                               children: [
                                 _infoCard("Tamaño", pet['tamano'] ?? "N/A"),
                                 _infoCard("Peso", "${pet['peso']} kg"),
-                                _infoCard("Plan", pet['plan_mascota'] ?? "Sin Plan"),
+                                _infoCard(
+                                  "Plan",
+                                  pet['plan_mascota'] ?? "Sin Plan",
+                                ),
                               ],
                             ),
                             Padding(
                               padding: const EdgeInsets.only(top: 8.0),
-                              child: Text("Descripción: ${pet['descripcion'] ?? ''}"),
+                              child: Text(
+                                "Descripción: ${pet['descripcion'] ?? ''}",
+                              ),
                             ),
                             if (_esAdmin)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8.0),
                                 child: ElevatedButton(
-                                  onPressed: () => _cambiarPlanUsuario(pet['id'], pet['plan_mascota'] ?? "Sin Plan"),
+                                  onPressed: () => _cambiarPlanUsuario(
+                                    pet['id'],
+                                    pet['plan_mascota'] ?? "Sin Plan",
+                                  ),
                                   child: const Text("Cambiar Plan"),
                                 ),
-                              )
+                              ),
                           ],
                         ),
                       ),
@@ -532,17 +738,28 @@ class _WelcomePageState extends State<WelcomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Mascota: ${pet['nombre']}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  "Mascota: ${pet['nombre']}",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const Divider(),
                 if (paseador != null) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const CircleAvatar(child: Icon(Icons.person)),
-                    title: Text("Paseador: ${paseador['nombre']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(
+                      "Paseador: ${paseador['nombre']}",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Experiencia: ${paseador['experiencia'] ?? 'N/A'}"),
+                        Text(
+                          "Experiencia: ${paseador['experiencia'] ?? 'N/A'}",
+                        ),
                         Text("Biografía: ${paseador['biografia'] ?? 'N/A'}"),
                       ],
                     ),
@@ -550,7 +767,14 @@ class _WelcomePageState extends State<WelcomePage> {
                 ] else ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Text("Paseador aun no asignado", style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      "Paseador aun no asignado",
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
                 if (_esAdmin) ...[
@@ -561,8 +785,8 @@ class _WelcomePageState extends State<WelcomePage> {
                       label: const Text("Asignar/Cambiar Paseador"),
                       onPressed: () => _asignarPaseadorDialog(pet['id']),
                     ),
-                  )
-                ]
+                  ),
+                ],
               ],
             ),
           ),
@@ -578,7 +802,10 @@ class _WelcomePageState extends State<WelcomePage> {
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-            Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(
+              titulo,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
             const SizedBox(height: 4),
             Text(desc, style: const TextStyle(fontSize: 12)),
           ],
@@ -594,15 +821,31 @@ class _WelcomePageState extends State<WelcomePage> {
         children: [
           const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
           const SizedBox(height: 20),
-          ListTile(leading: const Icon(Icons.badge), title: const Text("Nombre"), subtitle: Text(widget.userData['nombre'] ?? "N/A")),
-          ListTile(leading: const Icon(Icons.email), title: const Text("Email"), subtitle: Text(widget.userData['email'] ?? "N/A")),
+          ListTile(
+            leading: const Icon(Icons.badge),
+            title: const Text("Nombre"),
+            subtitle: Text(widget.userData['nombre'] ?? "N/A"),
+          ),
+          ListTile(
+            leading: const Icon(Icons.email),
+            title: const Text("Email"),
+            subtitle: Text(widget.userData['email'] ?? "N/A"),
+          ),
           const Spacer(),
           ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(50)),
-            onPressed: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const LoginPage()), (route) => false),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(50),
+            ),
+            onPressed: () => Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+              (route) => false,
+            ),
             icon: const Icon(Icons.logout),
             label: const Text("Cerrar Sesión"),
-          )
+          ),
         ],
       ),
     );
