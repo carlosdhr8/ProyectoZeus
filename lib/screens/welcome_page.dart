@@ -844,7 +844,7 @@ class _WelcomePageState extends State<WelcomePage> {
               (route) => false,
             ),
             icon: const Icon(Icons.logout),
-            label: const Text("Cerrar Sesió"),
+            label: const Text("Cerrar Sesión"),
           ),
         ],
       ),
