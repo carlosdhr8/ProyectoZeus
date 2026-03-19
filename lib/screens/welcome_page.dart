@@ -72,9 +72,9 @@ class _WelcomePageState extends State<WelcomePage> {
 
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("¡Foto actualizada!"),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text("¡Foto actualizada!"),
+            backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
       } else {
@@ -82,7 +82,10 @@ class _WelcomePageState extends State<WelcomePage> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     }
   }
@@ -248,9 +251,9 @@ class _WelcomePageState extends State<WelcomePage> {
 
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("¡Mascota registrada con éxito!"),
-                      backgroundColor: Colors.green,
+                    SnackBar(
+                      content: const Text("¡Mascota registrada con éxito!"),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
                 }
@@ -272,9 +275,9 @@ class _WelcomePageState extends State<WelcomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text(
+        title: Text(
           "Eliminar Mascota",
-          style: TextStyle(color: Colors.red),
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
         content: Text(
           "¿Estás seguro de que deseas borrar a $petNombre? Esta acción no se puede deshacer.",
@@ -286,8 +289,8 @@ class _WelcomePageState extends State<WelcomePage> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () async {
               try {
@@ -301,9 +304,9 @@ class _WelcomePageState extends State<WelcomePage> {
                   });
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Mascota eliminada del sistema"),
-                      backgroundColor: Colors.redAccent,
+                    SnackBar(
+                      content: const Text("Mascota eliminada del sistema"),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
                 }
@@ -416,12 +419,12 @@ class _WelcomePageState extends State<WelcomePage> {
                   });
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
+                    SnackBar(
+                      content: const Text(
                         "Datos actualizados",
                         style: TextStyle(color: Colors.white),
                       ),
-                      backgroundColor: Colors.green,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
                 }
@@ -520,11 +523,13 @@ class _WelcomePageState extends State<WelcomePage> {
 
                                   Navigator.pop(context);
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
+                                    SnackBar(
+                                      content: const Text(
                                         "¡Paseador asignado con éxito!",
                                       ),
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   );
                                 } else {
@@ -535,7 +540,9 @@ class _WelcomePageState extends State<WelcomePage> {
                                       content: Text(
                                         "Error: ${errorData['detail']}",
                                       ),
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                     ),
                                   );
                                 }
@@ -594,12 +601,20 @@ class _WelcomePageState extends State<WelcomePage> {
             padding: const EdgeInsets.all(10.0),
             child: ElevatedButton.icon(
               onPressed: _agregarMascotaDialog,
-              icon: const Icon(Icons.add),
-              label: const Text("Agregar Nueva Mascota"),
+              icon: Icon(
+                Icons.add,
+                color: Theme.of(context).colorScheme.onSecondary,
+              ),
+              label: Text(
+                "Agregar Nueva Mascota",
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSecondary,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[700],
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(45),
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                minimumSize: const Size.fromHeight(50),
+                elevation: 4,
               ),
             ),
           ),
@@ -616,99 +631,232 @@ class _WelcomePageState extends State<WelcomePage> {
                         pet['foto'] != null &&
                         pet['foto'].toString().trim().isNotEmpty;
 
-                    return Card(
+                    return Container(
                       margin: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
+                        horizontal: 16,
+                        vertical: 10,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF1E211F),
+                          width: 2.5,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0xFF1E211F),
+                            offset: Offset(4, 4),
+                            blurRadius: 0,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
                         child: Column(
                           children: [
-                            ListTile(
-                              leading: GestureDetector(
-                                onTap: () => _subirFotoMascota(pet['id']),
-                                child: CircleAvatar(
-                                  radius: 30,
-                                  backgroundColor: Colors.grey.shade300,
-                                  backgroundImage: hasFoto
-                                      ? MemoryImage(base64Decode(pet['foto']))
-                                      : null,
-                                  child: !hasFoto
-                                      ? const Icon(
-                                          Icons.camera_alt,
-                                          color: Colors.white,
-                                        )
-                                      : null,
-                                ),
+                            // CABECERA VERDE CON NOMBRE Y FOTO
+                            Container(
+                              color: Theme.of(context).colorScheme.primary,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
                               ),
-                              title: Text(
-                                pet['nombre'],
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Text(
-                                "${pet['raza']} - ${pet['edad']} años\nDueño: ${pet['dueno']}",
-                              ),
-
-                              // BOTONES DE ACCIÓN (Editar y Borrar)
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: Row(
                                 children: [
-                                  // Botón Borrar (Visible solo si ES admin)
-                                  if (_esAdmin)
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.red,
+                                  // Avatar
+                                  GestureDetector(
+                                    onTap: () => _subirFotoMascota(pet['id']),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.secondary,
+                                          width: 3,
+                                        ),
                                       ),
-                                      onPressed: () => _borrarMascota(
-                                        pet['id'],
-                                        pet['nombre'],
+                                      child: CircleAvatar(
+                                        radius: 35,
+                                        backgroundColor: Colors.white24,
+                                        backgroundImage: hasFoto
+                                            ? MemoryImage(
+                                                base64Decode(pet['foto']),
+                                              )
+                                            : null,
+                                        child: !hasFoto
+                                            ? const Icon(
+                                                Icons.add_a_photo,
+                                                color: Colors.white70,
+                                              )
+                                            : null,
                                       ),
                                     ),
-                                  // Botón Editar (Visible para todos)
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.edit,
-                                      color: Colors.blue,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Nombre y Raza
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          pet['nombre']
+                                              .toString()
+                                              .toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
+                                        Text(
+                                          "${pet['raza']} • ${pet['edad']} años",
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.secondary,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    onPressed: () => _editarMascota(pet),
+                                  ),
+                                  // Botones de acción
+                                  Column(
+                                    children: [
+                                      if (_esAdmin)
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(
+                                            Icons.delete_forever,
+                                            color: Colors.white70,
+                                          ),
+                                          onPressed: () => _borrarMascota(
+                                            pet['id'],
+                                            pet['nombre'],
+                                          ),
+                                        ),
+                                      if (_esAdmin) const SizedBox(height: 10),
+                                      IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        icon: const Icon(
+                                          Icons.edit_square,
+                                          color: Colors.white,
+                                        ),
+                                        onPressed: () => _editarMascota(pet),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _infoCard("Tamaño", pet['tamano'] ?? "N/A"),
-                                _infoCard("Peso", "${pet['peso']} kg"),
-                                _infoCard(
-                                  "Plan",
-                                  pet['plan_mascota'] ?? "Sin Plan",
-                                ),
-                              ],
-                            ),
+                            // CUERPO BLANCO/CREMA
                             Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                "Descripción: ${pet['descripcion'] ?? ''}",
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: _zeusTag(
+                                          "Tamaño",
+                                          pet['tamano'] ?? "N/A",
+                                          context,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: _zeusTag(
+                                          "Peso",
+                                          "${pet['peso']} kg",
+                                          context,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: _zeusTag(
+                                          "Plan",
+                                          pet['plan_mascota'] ?? "Sin Plan",
+                                          context,
+                                          isHighlight: true,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (_esAdmin) ...[
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.person,
+                                          size: 18,
+                                          color: Colors.grey,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          "Dueño: ${pet['dueno']}",
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                  ],
+                                  Text(
+                                    "\"${pet['descripcion'] ?? 'Sin descripción disponible'}\"",
+                                    style: const TextStyle(
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  if (_esAdmin) ...[
+                                    const SizedBox(height: 16),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton(
+                                        onPressed: () => _cambiarPlanUsuario(
+                                          pet['id'],
+                                          pet['plan_mascota'] ?? "Sin Plan",
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          side: BorderSide(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                            width: 2,
+                                          ),
+                                          foregroundColor: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "CAMBIAR PLAN",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            if (_esAdmin)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: ElevatedButton(
-                                  onPressed: () => _cambiarPlanUsuario(
-                                    pet['id'],
-                                    pet['plan_mascota'] ?? "Sin Plan",
-                                  ),
-                                  child: const Text("Cambiar Plan"),
-                                ),
-                              ),
                           ],
                         ),
                       ),
@@ -765,12 +913,12 @@ class _WelcomePageState extends State<WelcomePage> {
                     ),
                   ),
                 ] else ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Text(
                       "Paseador aun no asignado",
                       style: TextStyle(
-                        color: Colors.red,
+                        color: Theme.of(context).colorScheme.error,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -795,21 +943,49 @@ class _WelcomePageState extends State<WelcomePage> {
     );
   }
 
-  Widget _infoCard(String titulo, String desc) {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          children: [
-            Text(
-              titulo,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+  Widget _zeusTag(
+    String titulo,
+    String desc,
+    BuildContext context, {
+    bool isHighlight = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: isHighlight
+            ? Theme.of(context).colorScheme.secondary
+            : Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF1E211F), width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0xFF1E211F), offset: Offset(2, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            titulo.toUpperCase(),
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 10,
+              letterSpacing: 0.5,
             ),
-            const SizedBox(height: 4),
-            Text(desc, style: const TextStyle(fontSize: 12)),
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            desc,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isHighlight
+                  ? const Color(0xFF1E211F)
+                  : Theme.of(context).colorScheme.primary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -832,11 +1008,17 @@ class _WelcomePageState extends State<WelcomePage> {
             subtitle: Text(widget.userData['email'] ?? "N/A"),
           ),
           const Spacer(),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.error,
+                width: 1.5,
+              ),
               minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () => Navigator.pushAndRemoveUntil(
               context,
