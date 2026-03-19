@@ -1,0 +1,38 @@
+name: zeus_pet_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  http: ^1.6.0 # Necesario para la conexión con FastAPI
+  image_picker: ^1.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  # Paquete para generar los iconos automáticamente
+  flutter_launcher_icons: ^0.13.1 
+
+# Configuración del generador de iconos
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo.png" # Asegúrate de crear esta carpeta y poner tu imagen
+  adaptive_icon_background: "#FFFFFF" # El verde oscuro de tu AppBar
+  adaptive_icon_foreground: "assets/logo.png"
+
+flutter:
+  uses-material-design: true
+
+  # Sección de assets habilitada para tus imágenes locales
+  assets:
+    - assets/
