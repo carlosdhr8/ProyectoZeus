@@ -24,9 +24,40 @@ class _MascotasTabState extends State<MascotasTab> {
   String get _userEmail => widget.userData['email'] ?? "";
 
   Future<void> _subirFotoMascota(int petId) async {
+    ImageSource? sourceSeleccionado;
+    
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (BuildContext ctx) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text("Seleccionar foto", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Galería de Fotos'),
+                onTap: () { sourceSeleccionado = ImageSource.gallery; Navigator.pop(ctx); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Tomar Foto (Cámara)'),
+                onTap: () { sourceSeleccionado = ImageSource.camera; Navigator.pop(ctx); },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (sourceSeleccionado == null) return;
+
     try {
       final XFile? imagen = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: sourceSeleccionado!,
         imageQuality: 50,
       );
 
