@@ -394,3 +394,31 @@ def mis_paseos(pet_id: int, anio: int, mes: int):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()
+
+@app.get("/paseador_agenda/{paseador_id}/{anio}/{mes}")
+def paseador_agenda(paseador_id: int, anio: int, mes: int):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, m.nombre as nombre_mascota, m.usuario_email as nombre_dueno
+            FROM Paseos p
+            JOIN Mascotas m ON p.pet_id = m.id
+            WHERE p.paseador_id = ? AND MONTH(p.fecha_paseo) = ? AND YEAR(p.fecha_paseo) = ?
+        ''', (paseador_id, mes, anio))
+        
+        columnas = [column[0] for column in cursor.description] if cursor.description else []
+        pasos = []
+        for row in cursor.fetchall():
+            d = dict(zip(columnas, row))
+            if d.get('fecha_paseo'): d['fecha_paseo'] = d['fecha_paseo'].strftime('%Y-%m-%d')
+            if d.get('hora_inicio'): d['hora_inicio'] = str(d['hora_inicio'])
+            if d.get('hora_fin'): d['hora_fin'] = str(d['hora_fin'])
+            pasos.append(d)
+        
+        return {"mes": mes, "anio": anio, "paseos": pasos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()

@@ -38,9 +38,14 @@ class PerfilTab extends StatelessWidget {
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,
-              side: BorderSide(color: Theme.of(context).colorScheme.error, width: 1.5),
+              side: BorderSide(
+                color: Theme.of(context).colorScheme.error,
+                width: 1.5,
+              ),
               minimumSize: const Size.fromHeight(50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () => Navigator.pushAndRemoveUntil(
               context,
