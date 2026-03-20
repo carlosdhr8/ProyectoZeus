@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'screens/login_page.dart';
 
 // PALETA DE COLORES
@@ -75,7 +76,11 @@ final ThemeData zeusPetTheme = ThemeData(
   iconTheme: const IconThemeData(color: zeusGreen),
 );
 
-void main() => runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es_ES', null);
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

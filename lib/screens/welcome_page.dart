@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'tabs/mascotas_tab.dart';
 import 'tabs/paseadores_tab.dart';
 import 'tabs/perfil_tab.dart';
+import 'tabs/calendario_tab.dart';
 
 class WelcomePage extends StatefulWidget {
   final Map userData;
@@ -29,13 +30,15 @@ class _WelcomePageState extends State<WelcomePage> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: Text("Bienvenido, ${widget.userData['nombre']}"),
           bottom: const TabBar(
+            isScrollable: true,
             tabs: [
               Tab(icon: Icon(Icons.pets), text: "Mascotas"),
+              Tab(icon: Icon(Icons.calendar_month), text: "Calendario"),
               Tab(icon: Icon(Icons.directions_walk), text: "Paseador"),
               Tab(icon: Icon(Icons.person), text: "Perfil"),
             ],
@@ -44,6 +47,10 @@ class _WelcomePageState extends State<WelcomePage> {
         body: TabBarView(
           children: [
             MascotasTab(
+              userData: widget.userData,
+              mascotas: _listaMascotas,
+            ),
+            CalendarioTab(
               userData: widget.userData,
               mascotas: _listaMascotas,
             ),

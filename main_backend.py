@@ -8,6 +8,7 @@ import pyodbc
 import io
 import base64
 from typing import Optional
+from datetime import date, time
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -51,6 +52,15 @@ class UpdatePlanRequest(BaseModel):
 class AsignarPaseadorRequest(BaseModel):
     pet_id: int
     paseador_id: int
+
+class PaseoRequest(BaseModel):
+    pet_id: int
+    paseador_id: int
+    fecha: date
+    hora_inicio: time
+    hora_fin: time
+    admin_email: str
+    es_admin: bool
 
 @app.post("/login")
 def login(user: LoginRequest):
@@ -300,6 +310,87 @@ def assign_walker(req: AsignarPaseadorRequest):
         return {"status": "success", "message": "Paseador asignado correctamente"}
     except Exception as e:
         if conn: conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.post("/asignar_paseo")
+def asignar_paseo(req: PaseoRequest):
+    if not req.es_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Solo administradores.")
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("SELECT tipo_plan, usuario_email FROM Mascotas WHERE id = ?", (req.pet_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Mascota no encontrada.")
+        plan_actual = str(row[0]).lower().strip()
+        dueno_actual = row[1]
+        limites = {"basico": 8, "intermedio": 16, "avanzado": 24, "full": 24, "sin plan": 0}
+        limite_horas = limites.get(plan_actual, 0)
+        if limite_horas == 0:
+            raise HTTPException(status_code=400, detail="El cliente no tiene un plan activo para paseos.")
+
+        cursor.execute("""
+            SELECT M.usuario_email
+            FROM Paseos P
+            INNER JOIN Mascotas M ON P.pet_id = M.id
+            WHERE P.paseador_id = ?
+              AND P.fecha_paseo = ?
+              AND P.hora_inicio < ?
+              AND P.hora_fin > ?
+        """, (req.paseador_id, req.fecha.strftime('%Y-%m-%d'), req.hora_fin.strftime('%H:%M:%S'), req.hora_inicio.strftime('%H:%M:%S')))
+        
+        overlapping_owners = cursor.fetchall()
+        for owner_row in overlapping_owners:
+            if owner_row[0] != dueno_actual:
+                raise HTTPException(status_code=400, detail="Horario no disponible: El paseador ya fue asignado a otro dueño a esa misma hora.")
+
+        mes, anio = req.fecha.month, req.fecha.year
+        cursor.execute("SELECT COUNT(*) FROM Paseos WHERE pet_id = ? AND MONTH(fecha_paseo) = ? AND YEAR(fecha_paseo) = ?", (req.pet_id, mes, anio))
+        paseos_mes = cursor.fetchone()[0]
+
+        if paseos_mes >= limite_horas:
+            raise HTTPException(status_code=400, detail=f"Límite alcanzado ({limite_horas} paseos/mes).")
+
+        cursor.execute(
+            "INSERT INTO Paseos (pet_id, paseador_id, fecha_paseo, hora_inicio, hora_fin, creado_por_admin) VALUES (?, ?, ?, ?, ?, ?)",
+            (req.pet_id, req.paseador_id, req.fecha.strftime('%Y-%m-%d'), req.hora_inicio.strftime('%H:%M:%S'), req.hora_fin.strftime('%H:%M:%S'), req.admin_email)
+        )
+        conn.commit()
+        return {"status": "success", "message": "Paseo asignado exitosamente."}
+    except Exception as e:
+        if conn: conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.get("/mis_paseos/{pet_id}/{anio}/{mes}")
+def mis_paseos(pet_id: int, anio: int, mes: int):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, u.nombre_completo as nombre_paseador
+            FROM Paseos p
+            JOIN Paseadores u ON p.paseador_id = u.id
+            WHERE p.pet_id = ? AND MONTH(p.fecha_paseo) = ? AND YEAR(p.fecha_paseo) = ?
+        ''', (pet_id, mes, anio))
+        
+        columnas = [column[0] for column in cursor.description] if cursor.description else []
+        pasos = []
+        for row in cursor.fetchall():
+            d = dict(zip(columnas, row))
+            if d.get('fecha_paseo'): d['fecha_paseo'] = d['fecha_paseo'].strftime('%Y-%m-%d')
+            if d.get('hora_inicio'): d['hora_inicio'] = str(d['hora_inicio'])
+            if d.get('hora_fin'): d['hora_fin'] = str(d['hora_fin'])
+            pasos.append(d)
+        
+        return {"mes": mes, "anio": anio, "paseos": pasos}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()
