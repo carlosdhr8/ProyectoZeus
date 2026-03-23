@@ -79,7 +79,7 @@ def login(user: LoginRequest):
                 # Agregamos el LEFT JOIN con Paseadores (P)
                 pets_query = """
                     SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, U.nombre_completo, M.usuario_email, M.tipo_plan, M.foto,
-                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia
+                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
                     FROM Mascotas M
                     INNER JOIN Usuarios U ON M.usuario_email = U.email
                     LEFT JOIN Paseadores P ON M.paseador_id = P.id
@@ -90,7 +90,7 @@ def login(user: LoginRequest):
                 # Agregamos el LEFT JOIN con Paseadores (P)
                 pets_query = """
                     SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, NULL, M.usuario_email, M.tipo_plan, M.foto,
-                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia
+                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
                     FROM Mascotas M
                     LEFT JOIN Paseadores P ON M.paseador_id = P.id
                     WHERE M.usuario_email = ?
@@ -101,11 +101,19 @@ def login(user: LoginRequest):
 
             mascotas = []
             for r in pets_rows:
-                # Extraemos la foto de forma segura
+                # Extraemos la foto de forma segura para la mascota
                 foto_b64 = None
                 if r[10]:
                     try:
                         foto_b64 = base64.b64encode(r[10]).decode('utf-8')
+                    except Exception:
+                        pass
+                
+                # Extraemos la foto de forma segura para el paseador
+                foto_paseador_b64 = None
+                if r[15]:
+                    try:
+                        foto_paseador_b64 = base64.b64encode(r[15]).decode('utf-8')
                     except Exception:
                         pass
 
@@ -120,10 +128,40 @@ def login(user: LoginRequest):
                         "id": r[11],
                         "nombre": r[12],
                         "experiencia": r[13],
-                        "biografia": r[14]
+                        "biografia": r[14],
+                        "foto": foto_paseador_b64
                     } if r[11] is not None else None
                 }
                 mascotas.append(pet)
+
+            # NUEVO: LÓGICA DE EXPIRACIÓN AUTOMÁTICA EN LOGIN
+            # Recorrer las mascotas y verificar si su último paseo permitido ya ocurrió.
+            for pet in mascotas:
+                if pet["plan_mascota"].lower() != "sin plan":
+                    cursor.execute("SELECT limite_horas FROM Planes WHERE LOWER(nombre) = LOWER(?)", (pet["plan_mascota"],))
+                    plan_r = cursor.fetchone()
+                    limite_h = plan_r[0] if plan_r else 0
+                    
+                    if limite_h > 0:
+                        # Fetch the number of walks taken AND check if the last walk's end time has passed
+                        cursor.execute("""
+                            SELECT COUNT(*), MAX(CAST(fecha_paseo AS DATETIME) + CAST(hora_fin AS DATETIME)) 
+                            FROM Paseos P 
+                            INNER JOIN Mascotas M ON P.pet_id = M.id
+                            WHERE P.pet_id = ? AND P.fecha_creacion >= M.fecha_actualizacion_plan
+                        """, (pet["id"],))
+                        stats_row = cursor.fetchone()
+                        paseos_consumidos = stats_row[0] if stats_row and stats_row[0] else 0
+                        ultimo_fin = stats_row[1] if stats_row and stats_row[1] else None
+                        
+                        # Si ya se agendaron todos los paseos Y la fecha/hora del último paseo ya pasó, se expira el plan.
+                        if paseos_consumidos >= limite_h and ultimo_fin is not None:
+                            cursor.execute("SELECT GETDATE()")
+                            ahora = cursor.fetchone()[0]
+                            if ahora >= ultimo_fin:
+                                cursor.execute("UPDATE Mascotas SET tipo_plan = 'Sin Plan' WHERE id = ?", (pet["id"],))
+                                conn.commit()
+                                pet["plan_mascota"] = "Sin Plan"
 
             return {
                 "status": "success",
@@ -180,8 +218,8 @@ def update_plan(req: UpdatePlanRequest):
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        # Actualizamos la tabla Usuarios con el nuevo tipo_plan
-        cursor.execute("UPDATE Mascotas SET tipo_plan = ? WHERE id = ?", (req.tipo_plan, req.pet_id))
+        # Actualizamos la tabla Mascotas con el nuevo tipo_plan y la fecha
+        cursor.execute("UPDATE Mascotas SET tipo_plan = ?, fecha_actualizacion_plan = GETDATE() WHERE id = ?", (req.tipo_plan, req.pet_id))
         conn.commit()
         return {"status": "success", "message": "Plan actualizado correctamente"}
     except Exception as e:
@@ -259,6 +297,37 @@ async def upload_pet_photo_api(pet_id: int, file: UploadFile = File(...)):
     finally:
         if conn: conn.close()
 
+@app.post("/upload-walker-photo/{walker_id}")
+async def upload_walker_photo_api(walker_id: int, file: UploadFile = File(...)):
+    conn = None
+    try:
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="El archivo está vacío")
+
+        img = Image.open(io.BytesIO(contents))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+
+        # Foto un poco más grande (o misma calidad)
+        img.thumbnail((500, 500))
+
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG', quality=85)
+        img_data = img_byte_arr.getvalue()
+
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Paseadores SET foto = ? WHERE id = ?", (pyodbc.Binary(img_data), walker_id))
+        conn.commit()
+
+        return {"status": "success", "message": "Foto del paseador guardada correctamente"}
+    except Exception as e:
+        print(f"Error subiendo foto paseador: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
 @app.get("/get-pet-photo/{pet_id}")
 async def get_pet_photo(pet_id: int):
     conn = None
@@ -279,6 +348,38 @@ async def get_pet_photo(pet_id: int):
     finally:
         if conn: conn.close()
 
+# Nuevo endpoint para ver todos los planes activos (Para Dropdown)
+@app.get("/get_planes")
+def get_planes():
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        
+        # OPORTUNIDAD DE EXPIRAR PLANES GLOBALMENTE CADA VEZ QUE ENTRAN AL CALENDARIO/APP
+        # Expiración lazy de planes
+        cursor.execute("""
+            UPDATE M 
+            SET M.tipo_plan = 'Sin Plan'
+            FROM Mascotas M
+            INNER JOIN Planes PL ON LOWER(M.tipo_plan) = LOWER(PL.nombre)
+            WHERE M.tipo_plan != 'Sin Plan'
+              AND (
+                  SELECT COUNT(*) FROM Paseos P WHERE P.pet_id = M.id AND P.fecha_creacion >= M.fecha_actualizacion_plan
+              ) >= PL.limite_horas
+              AND (
+                  SELECT MAX(CAST(P2.fecha_paseo AS DATETIME) + CAST(P2.hora_fin AS DATETIME)) 
+                  FROM Paseos P2 WHERE P2.pet_id = M.id AND P2.fecha_creacion >= M.fecha_actualizacion_plan
+              ) <= GETDATE()
+        """)
+        conn.commit()
+
+        cursor.execute("SELECT id, nombre, limite_horas FROM Planes WHERE activo = 1")
+        rows = cursor.fetchall()
+        return [{"id": r[0], "nombre": r[1], "limite_horas": r[2]} for r in rows]
+    finally:
+        if conn: conn.close()
+
 # 3. Ver lista de todos los paseadores (Para que el admin elija uno en un Dropdown)
 @app.get("/get_all_walkers")
 def get_all_walkers():
@@ -286,10 +387,22 @@ def get_all_walkers():
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        # Se agrego el campo "biografia" a la consulta SQL
-        cursor.execute("SELECT id, nombre_completo, experiencia, biografia FROM Paseadores")
+        # Se agrego el campo "biografia" y "foto" a la consulta SQL
+        cursor.execute("SELECT id, nombre_completo, experiencia, biografia, foto FROM Paseadores")
         rows = cursor.fetchall()
-        return [{"id": r[0], "nombre": r[1], "experiencia": r[2], "biografia": r[3]} for r in rows]
+        
+        walkers = []
+        for r in rows:
+            foto_b64 = None
+            if r[4]:
+                try:
+                    foto_b64 = base64.b64encode(r[4]).decode('utf-8')
+                except Exception:
+                    pass
+            walkers.append({
+                "id": r[0], "nombre": r[1], "experiencia": r[2], "biografia": r[3], "foto": foto_b64
+            })
+        return walkers
     finally:
         if conn: conn.close()
 
@@ -322,16 +435,23 @@ def asignar_paseo(req: PaseoRequest):
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        cursor.execute("SELECT tipo_plan, usuario_email FROM Mascotas WHERE id = ?", (req.pet_id,))
+        cursor.execute("SELECT tipo_plan, usuario_email, fecha_actualizacion_plan FROM Mascotas WHERE id = ?", (req.pet_id,))
         row = cursor.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Mascota no encontrada.")
-        plan_actual = str(row[0]).lower().strip()
+        
+        plan_actual = str(row[0]).strip()
         dueno_actual = row[1]
-        limites = {"basico": 8, "intermedio": 16, "avanzado": 24, "full": 24, "sin plan": 0}
-        limite_horas = limites.get(plan_actual, 0)
-        if limite_horas == 0:
+        fecha_act = row[2]
+        if not fecha_act or plan_actual.lower() == 'sin plan':
             raise HTTPException(status_code=400, detail="El cliente no tiene un plan activo para paseos.")
+
+        cursor.execute("SELECT limite_horas FROM Planes WHERE LOWER(nombre) = LOWER(?)", (plan_actual,))
+        plan_row = cursor.fetchone()
+        
+        limite_horas = plan_row[0] if plan_row else 0
+        if limite_horas == 0:
+            raise HTTPException(status_code=400, detail="El cliente no tiene un plan activo válido para paseos.")
 
         cursor.execute("""
             SELECT M.usuario_email
@@ -363,16 +483,22 @@ def asignar_paseo(req: PaseoRequest):
         # ------------------------------------------
 
         mes, anio = req.fecha.month, req.fecha.year
-        cursor.execute("SELECT COUNT(*) FROM Paseos WHERE pet_id = ? AND MONTH(fecha_paseo) = ? AND YEAR(fecha_paseo) = ?", (req.pet_id, mes, anio))
-        paseos_mes = cursor.fetchone()[0]
+        # Ojo: Aquí contamos solo los paseos QUE SE ASIGNARON (fecha_creacion) después de que el plan se activó
+        # Así si el plan de 1 hora se venció y el admin "renueva/activa" el plan de nuevo, su `fecha_actualizacion_plan` cambia a HOY
+        # y los paseos viejos (que se crearon ayer o antes) ya no contarán restando horas al nuevo paquete.
+        cursor.execute("SELECT COUNT(*) FROM Paseos WHERE pet_id = ? AND fecha_creacion >= ?", (req.pet_id, fecha_act))
+        paseos_usados = cursor.fetchone()[0]
 
-        if paseos_mes >= limite_horas:
-            raise HTTPException(status_code=400, detail=f"Límite alcanzado ({limite_horas} paseos/mes).")
+        if paseos_usados >= limite_horas:
+            raise HTTPException(status_code=400, detail=f"Límite de {limite_horas} horas alcanzado. La mascota debe renovar su plan para seguir sumando paseos.")
 
         cursor.execute(
-            "INSERT INTO Paseos (pet_id, paseador_id, fecha_paseo, hora_inicio, hora_fin, creado_por_admin) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO Paseos (pet_id, paseador_id, fecha_paseo, hora_inicio, hora_fin, creado_por_admin, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?, GETDATE())",
             (req.pet_id, req.paseador_id, req.fecha.strftime('%Y-%m-%d'), req.hora_inicio.strftime('%H:%M:%S'), req.hora_fin.strftime('%H:%M:%S'), req.admin_email)
         )
+        # SE ELIMINÓ LA ACTUALIZACIÓN AUTOMÁTICA A "SIN PLAN".
+        # Ahora el plan solo debe expirar cuando la fecha y hora pasen realmente
+            
         conn.commit()
         return {"status": "success", "message": "Paseo asignado exitosamente."}
     except Exception as e:

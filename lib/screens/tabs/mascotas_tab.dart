@@ -22,6 +22,29 @@ class _MascotasTabState extends State<MascotasTab> {
 
   bool get _esAdmin => widget.userData['es_admin'] ?? false;
   String get _userEmail => widget.userData['email'] ?? "";
+  List<dynamic> _planesActivos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_esAdmin) {
+      _cargarPlanes();
+    }
+  }
+
+  Future<void> _cargarPlanes() async {
+    try {
+      final res = await http.get(Uri.parse("http://18.223.214.78:8000/get_planes"));
+      if (res.statusCode == 200) {
+        if (!mounted) return;
+        setState(() {
+          _planesActivos = jsonDecode(res.body);
+        });
+      }
+    } catch (e) {
+      print("Error cargando planes: $e");
+    }
+  }
 
   Future<void> _subirFotoMascota(int petId) async {
     ImageSource? sourceSeleccionado;
@@ -108,17 +131,20 @@ class _MascotasTabState extends State<MascotasTab> {
   }
 
   Future<void> _cambiarPlanUsuario(int petId, String planActual) async {
-    String? planSeleccionado = planActual;
+    // Extraemos la lista de nombres de planes disponibles. Siempre incluimos "Sin Plan"
+    List<String> opcionesPlanes = ['Sin Plan'];
+    opcionesPlanes.addAll(_planesActivos.map((p) => p['nombre'].toString()));
+
+    String? planSeleccionado = opcionesPlanes.contains(planActual) ? planActual : 'Sin Plan';
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Asignar Plan (Modo Admin)"),
         content: DropdownButtonFormField<String>(
-          value: ['Sin Plan', 'Basico', 'Intermedio', 'Avanzado'].contains(planSeleccionado)
-              ? planSeleccionado
-              : 'Sin Plan',
-          items: ['Sin Plan', 'Basico', 'Intermedio', 'Avanzado']
+          value: planSeleccionado,
+          isExpanded: true,
+          items: opcionesPlanes
               .map((p) => DropdownMenuItem(value: p, child: Text(p)))
               .toList(),
           onChanged: (val) => planSeleccionado = val,

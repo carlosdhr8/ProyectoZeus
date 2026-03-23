@@ -19,6 +19,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
   Map<DateTime, List<dynamic>> _eventosMascota = {};
   String? _selectedValue; // e.g., 'pet_1' or 'walker_2'
   List<dynamic> _paseadores = [];
+  List<dynamic> _planesActivos = [];
 
   bool get _esAdmin => widget.userData['es_admin'] ?? false;
   String get _adminEmail => widget.userData['email'] ?? "";
@@ -33,6 +34,21 @@ class _CalendarioTabState extends State<CalendarioTab> {
     }
     if (_esAdmin) {
       _cargarPaseadores();
+    }
+    _cargarPlanes();
+  }
+
+  Future<void> _cargarPlanes() async {
+    try {
+      final res = await http.get(Uri.parse("http://18.223.214.78:8000/get_planes"));
+      if (res.statusCode == 200) {
+        if (!mounted) return;
+        setState(() {
+          _planesActivos = jsonDecode(res.body);
+        });
+      }
+    } catch (e) {
+      // ignorar
     }
   }
 
@@ -104,10 +120,14 @@ class _CalendarioTabState extends State<CalendarioTab> {
     var petId = int.tryParse(_selectedValue!.substring(4));
     // Si no encuentra la mascota, retorna un Map vacío en vez de un Set {} que tumba la app
     var pet = widget.mascotas.firstWhere((p) => p['id'] == petId, orElse: () => <String, dynamic>{});
-    String plan = (pet['plan_mascota'] ?? "").toString().toLowerCase();
-    if (plan.contains("basico") || plan.contains("básico")) return 8;
-    if (plan.contains("intermedio")) return 16;
-    if (plan.contains("avanzado") || plan.contains("full")) return 24;
+    String planName = (pet['plan_mascota'] ?? "").toString().toLowerCase().trim();
+    if (planName == 'sin plan' || planName.isEmpty) return 0;
+    
+    for (var p in _planesActivos) {
+      if (p['nombre'].toString().toLowerCase().trim() == planName) {
+        return p['limite_horas'] as int;
+      }
+    }
     return 0;
   }
 
