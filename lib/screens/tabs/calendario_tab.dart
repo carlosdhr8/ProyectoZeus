@@ -17,7 +17,8 @@ class _CalendarioTabState extends State<CalendarioTab> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, List<dynamic>> _eventosMascota = {};
-  dynamic _selectedPetId; // Cambiado a dynamic para evitar errores de parseo con id enteros o strings
+  String? _selectedValue; // e.g., 'pet_1' or 'walker_2'
+  List<dynamic> _paseadores = [];
 
   bool get _esAdmin => widget.userData['es_admin'] ?? false;
   String get _adminEmail => widget.userData['email'] ?? "";
@@ -27,15 +28,42 @@ class _CalendarioTabState extends State<CalendarioTab> {
     super.initState();
     _selectedDay = _focusedDay;
     if (widget.mascotas.isNotEmpty) {
-      _selectedPetId = widget.mascotas.first['id'];
+      _selectedValue = "pet_${widget.mascotas.first['id']}";
       _cargarPaseos();
+    }
+    if (_esAdmin) {
+      _cargarPaseadores();
+    }
+  }
+
+  Future<void> _cargarPaseadores() async {
+    try {
+      final res = await http.get(Uri.parse("http://18.223.214.78:8000/get_all_walkers"));
+      if (res.statusCode == 200) {
+        if (!mounted) return;
+        setState(() {
+          _paseadores = jsonDecode(res.body);
+        });
+      }
+    } catch (e) {
+      // ignore silently
     }
   }
 
   Future<void> _cargarPaseos() async {
-    if (_selectedPetId == null) return;
+    if (_selectedValue == null) return;
     try {
-      final res = await http.get(Uri.parse("http://18.223.214.78:8000/mis_paseos/$_selectedPetId/${_focusedDay.year}/${_focusedDay.month}"));
+      String url = "";
+      if (_selectedValue!.startsWith("pet_")) {
+        var petId = _selectedValue!.substring(4);
+        url = "http://18.223.214.78:8000/mis_paseos/$petId/${_focusedDay.year}/${_focusedDay.month}";
+      } else if (_selectedValue!.startsWith("walker_")) {
+        var walkerId = _selectedValue!.substring(7);
+        url = "http://18.223.214.78:8000/paseador_agenda/$walkerId/${_focusedDay.year}/${_focusedDay.month}";
+      }
+      if (url.isEmpty) return;
+      
+      final res = await http.get(Uri.parse(url));
       
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -72,9 +100,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
   }
 
   int get _limitePaseos {
-    if (_selectedPetId == null) return 0;
+    if (_selectedValue == null || !_selectedValue!.startsWith("pet_")) return 0;
+    var petId = int.tryParse(_selectedValue!.substring(4));
     // Si no encuentra la mascota, retorna un Map vacío en vez de un Set {} que tumba la app
-    var pet = widget.mascotas.firstWhere((p) => p['id'] == _selectedPetId, orElse: () => <String, dynamic>{});
+    var pet = widget.mascotas.firstWhere((p) => p['id'] == petId, orElse: () => <String, dynamic>{});
     String plan = (pet['plan_mascota'] ?? "").toString().toLowerCase();
     if (plan.contains("basico") || plan.contains("básico")) return 8;
     if (plan.contains("intermedio")) return 16;
@@ -94,7 +123,9 @@ class _CalendarioTabState extends State<CalendarioTab> {
      TimeOfDay? horaFin = await showTimePicker(context: context, initialTime: TimeOfDay(hour: horaInicio.hour + 1, minute: horaInicio.minute));
      if (horaFin == null) return;
 
-     var pet = widget.mascotas.firstWhere((p) => p['id'] == _selectedPetId, orElse: () => <String, dynamic>{});
+     if (_selectedValue == null || !_selectedValue!.startsWith("pet_")) return;
+     var petId = int.tryParse(_selectedValue!.substring(4));
+     var pet = widget.mascotas.firstWhere((p) => p['id'] == petId, orElse: () => <String, dynamic>{});
      if (pet['paseador'] == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Esta mascota no tiene un paseador asignado.")));
@@ -107,7 +138,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
          Uri.parse("http://18.223.214.78:8000/asignar_paseo"),
          headers: {"Content-Type": "application/json"},
          body: jsonEncode({
-           "pet_id": _selectedPetId,
+           "pet_id": petId,
            "paseador_id": paseadorId,
            "fecha": fechaElegida.toIso8601String().split('T')[0],
            "hora_inicio": "${horaInicio.hour.toString().padLeft(2,'0')}:${horaInicio.minute.toString().padLeft(2,'0')}:00",
@@ -137,21 +168,30 @@ class _CalendarioTabState extends State<CalendarioTab> {
 
     return Column(
       children: [
-        if (widget.mascotas.length > 1) 
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: DropdownButton<dynamic>(
-              value: _selectedPetId,
-              isExpanded: true,
-              items: widget.mascotas.map((m) => DropdownMenuItem<dynamic>(value: m['id'], child: Text("Mascota: ${m['nombre']} - ${m['raza']}"))).toList(),
-              onChanged: (v) {
-                if (v != null) {
-                  setState(() => _selectedPetId = v);
-                  _cargarPaseos();
-                }
-              },
-            ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: DropdownButton<dynamic>(
+            value: _selectedValue,
+            isExpanded: true,
+            items: [
+              ...widget.mascotas.map((m) => DropdownMenuItem<dynamic>(
+                value: "pet_${m['id']}", 
+                child: Text("Mascota: ${m['nombre']} - ${m['raza']}")
+              )).toList(),
+              if (_esAdmin)
+                ..._paseadores.map((p) => DropdownMenuItem<dynamic>(
+                  value: "walker_${p['id']}",
+                  child: Text("Paseador: ${p['nombre']}")
+                )).toList()
+            ],
+            onChanged: (v) {
+              if (v != null) {
+                setState(() => _selectedValue = v.toString());
+                _cargarPaseos();
+              }
+            },
           ),
+        ),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -233,15 +273,16 @@ class _CalendarioTabState extends State<CalendarioTab> {
         Expanded(
           child: ListView(
             children: _obtenerEventosDelDia(_selectedDay ?? _focusedDay).map((evento) {
+              bool isWalker = _selectedValue?.startsWith("walker_") ?? false;
               return ListTile(
                 leading: const Icon(Icons.pets, color: Colors.green),
-                title: Text("Paseador: ${evento['nombre_paseador'] ?? 'No asignado'}"),
-                subtitle: Text("Hora: ${evento['hora_inicio']} - ${evento['hora_fin']}"),
+                title: Text(isWalker ? "Mascota: ${evento['nombre_mascota']}" : "Paseador: ${evento['nombre_paseador'] ?? 'No asignado'}"),
+                subtitle: Text("Hora: ${evento['hora_inicio']} - ${evento['hora_fin']}" + (isWalker ? "\nDueño: ${evento['nombre_dueno'] ?? 'Anónimo'}" : "")),
               );
             }).toList(),
           ),
         ),
-        if (_esAdmin)
+        if (_esAdmin && _selectedValue != null && _selectedValue!.startsWith("pet_"))
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton.icon(

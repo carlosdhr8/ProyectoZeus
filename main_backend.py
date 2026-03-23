@@ -348,6 +348,20 @@ def asignar_paseo(req: PaseoRequest):
             if owner_row[0] != dueno_actual:
                 raise HTTPException(status_code=400, detail="Horario no disponible: El paseador ya fue asignado a otro dueño a esa misma hora.")
 
+        # ----- NUEVA VALIDACION DE LA MASCOTA -----
+        cursor.execute("""
+            SELECT P.id_paseo
+            FROM Paseos P
+            WHERE P.pet_id = ?
+              AND P.fecha_paseo = ?
+              AND P.hora_inicio < ?
+              AND P.hora_fin > ?
+        """, (req.pet_id, req.fecha.strftime('%Y-%m-%d'), req.hora_fin.strftime('%H:%M:%S'), req.hora_inicio.strftime('%H:%M:%S')))
+        
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Horario no disponible: La mascota ya tiene un paseo programado en ese horario.")
+        # ------------------------------------------
+
         mes, anio = req.fecha.month, req.fecha.year
         cursor.execute("SELECT COUNT(*) FROM Paseos WHERE pet_id = ? AND MONTH(fecha_paseo) = ? AND YEAR(fecha_paseo) = ?", (req.pet_id, mes, anio))
         paseos_mes = cursor.fetchone()[0]
