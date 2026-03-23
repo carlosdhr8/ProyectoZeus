@@ -29,39 +29,37 @@ class _WelcomePageState extends State<WelcomePage> {
 
   @override
   Widget build(BuildContext context) {
+    bool esPaseador = widget.userData['es_paseador'] ?? false;
+
+    List<Tab> misTabs = [
+      const Tab(icon: Icon(Icons.pets), text: "Mascotas"),
+      const Tab(icon: Icon(Icons.calendar_month), text: "Calendario"),
+    ];
+    List<Widget> misVistas = [
+      MascotasTab(userData: widget.userData, mascotas: _listaMascotas),
+      CalendarioTab(userData: widget.userData, mascotas: _listaMascotas),
+    ];
+
+    if (!esPaseador) {
+      misTabs.add(const Tab(icon: Icon(Icons.directions_walk), text: "Paseador"));
+      misVistas.add(PaseadoresTab(userData: widget.userData, mascotas: _listaMascotas));
+    }
+
+    misTabs.add(const Tab(icon: Icon(Icons.person), text: "Perfil"));
+    misVistas.add(PerfilTab(userData: widget.userData));
+
     return DefaultTabController(
-      length: 4,
+      length: misTabs.length,
       child: Scaffold(
         appBar: AppBar(
           title: Text("Bienvenido, ${widget.userData['nombre']}"),
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
-            tabs: [
-              Tab(icon: Icon(Icons.pets), text: "Mascotas"),
-              Tab(icon: Icon(Icons.calendar_month), text: "Calendario"),
-              Tab(icon: Icon(Icons.directions_walk), text: "Paseador"),
-              Tab(icon: Icon(Icons.person), text: "Perfil"),
-            ],
+            tabs: misTabs,
           ),
         ),
         body: TabBarView(
-          children: [
-            MascotasTab(
-              userData: widget.userData,
-              mascotas: _listaMascotas,
-            ),
-            CalendarioTab(
-              userData: widget.userData,
-              mascotas: _listaMascotas,
-            ),
-            PaseadoresTab(
-              userData: widget.userData,
-              mascotas: _listaMascotas,
-            ),
-            PerfilTab(
-              userData: widget.userData,
-            ),
-          ],
+          children: misVistas,
         ),
       ),
     );

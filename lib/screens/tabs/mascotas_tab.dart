@@ -21,6 +21,7 @@ class _MascotasTabState extends State<MascotasTab> {
   final ImagePicker _picker = ImagePicker();
 
   bool get _esAdmin => widget.userData['es_admin'] ?? false;
+  bool get _esPaseador => widget.userData['es_paseador'] ?? false;
   String get _userEmail => widget.userData['email'] ?? "";
   List<dynamic> _planesActivos = [];
 
@@ -402,7 +403,7 @@ class _MascotasTabState extends State<MascotasTab> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (!_esAdmin)
+        if (!_esAdmin && !_esPaseador)
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: ElevatedButton.icon(
@@ -478,12 +479,13 @@ class _MascotasTabState extends State<MascotasTab> {
                                           onPressed: () => _borrarMascota(pet['id'], pet['nombre']),
                                         ),
                                       if (_esAdmin) const SizedBox(height: 10),
-                                      IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        icon: const Icon(Icons.edit_square, color: Colors.white),
-                                        onPressed: () => _editarMascota(pet),
-                                      ),
+                                      if (!_esPaseador)
+                                        IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          icon: const Icon(Icons.edit_square, color: Colors.white),
+                                          onPressed: () => _editarMascota(pet),
+                                        ),
                                     ],
                                   ),
                                 ],

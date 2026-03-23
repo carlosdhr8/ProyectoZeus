@@ -68,15 +68,28 @@ def login(user: LoginRequest):
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        cursor.execute("SELECT email, nombre_completo, edad, lugar_residencia, tipo_plan FROM Usuarios WHERE email = ? AND password = ?", (user.email, user.password))
+        # Modificación: extraemos 'id' y 'rol'
+        cursor.execute("SELECT id, email, nombre_completo, edad, lugar_residencia, tipo_plan, foto, rol FROM Usuarios WHERE email = ? AND password = ?", (user.email, user.password))
         user_row = cursor.fetchone()
 
         if user_row:
-            email_usuario = user_row[0]
-            es_admin = (email_usuario == "admin@zeus.com")
+            id_usuario = user_row[0]
+            email_usuario = user_row[1]
+            
+            foto_usr_b64 = None
+            if user_row[6]:
+                try:
+                    foto_usr_b64 = base64.b64encode(user_row[6]).decode('utf-8')
+                except Exception:
+                    pass
+            
+            # Dinamismo de Roles
+            rol_usuario = user_row[7] if user_row[7] else 'usuario'
+            es_admin = (rol_usuario == 'admin')
+            es_paseador = (rol_usuario == 'paseador')
 
             if es_admin:
-                # Agregamos el LEFT JOIN con Paseadores (P)
+                # El admin ve todo
                 pets_query = """
                     SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, U.nombre_completo, M.usuario_email, M.tipo_plan, M.foto,
                            P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
@@ -86,8 +99,19 @@ def login(user: LoginRequest):
                     ORDER BY M.usuario_email
                 """
                 cursor.execute(pets_query)
+            elif es_paseador:
+                # El paseador ve solo las mascotas vinculadas a su usuario_id en Paseadores
+                pets_query = """
+                    SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, U.nombre_completo, M.usuario_email, M.tipo_plan, M.foto,
+                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
+                    FROM Mascotas M
+                    INNER JOIN Usuarios U ON M.usuario_email = U.email
+                    INNER JOIN Paseadores P ON M.paseador_id = P.id
+                    WHERE P.usuario_id = ?
+                """
+                cursor.execute(pets_query, (id_usuario,))
             else:
-                # Agregamos el LEFT JOIN con Paseadores (P)
+                # Un usuario normal ve solo sus mascotas
                 pets_query = """
                     SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, NULL, M.usuario_email, M.tipo_plan, M.foto,
                            P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
@@ -166,12 +190,16 @@ def login(user: LoginRequest):
             return {
                 "status": "success",
                 "user_data": {
-                    "email": user_row[0],
-                    "nombre": user_row[1],
-                    "edad": user_row[2],
-                    "residencia": user_row[3],
-                    "tipo_plan": user_row[4],
-                    "es_admin": es_admin
+                    "id": user_row[0],
+                    "email": user_row[1],
+                    "nombre": user_row[2],
+                    "edad": user_row[3],
+                    "residencia": user_row[4],
+                    "tipo_plan": user_row[5],
+                    "foto": foto_usr_b64,
+                    "rol": rol_usuario,
+                    "es_admin": es_admin,
+                    "es_paseador": es_paseador
                 },
                 "mascotas": mascotas
             }
@@ -324,6 +352,37 @@ async def upload_walker_photo_api(walker_id: int, file: UploadFile = File(...)):
         return {"status": "success", "message": "Foto del paseador guardada correctamente"}
     except Exception as e:
         print(f"Error subiendo foto paseador: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.post("/upload-user-photo/{user_email}")
+async def upload_user_photo_api(user_email: str, file: UploadFile = File(...)):
+    conn = None
+    try:
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="El archivo está vacío")
+
+        img = Image.open(io.BytesIO(contents))
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+
+        # Foto grande para el perfil
+        img.thumbnail((600, 600))
+
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG', quality=85)
+        img_data = img_byte_arr.getvalue()
+
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Usuarios SET foto = ? WHERE email = ?", (pyodbc.Binary(img_data), user_email))
+        conn.commit()
+
+        return {"status": "success", "message": "Foto de usuario guardada correctamente"}
+    except Exception as e:
+        print(f"Error subiendo foto de usuario: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()

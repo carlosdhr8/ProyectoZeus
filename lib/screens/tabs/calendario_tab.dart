@@ -22,6 +22,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
   List<dynamic> _planesActivos = [];
 
   bool get _esAdmin => widget.userData['es_admin'] ?? false;
+  bool get _esPaseador => widget.userData['es_paseador'] ?? false;
   String get _adminEmail => widget.userData['email'] ?? "";
 
   @override
@@ -223,7 +224,11 @@ class _CalendarioTabState extends State<CalendarioTab> {
               const SizedBox(width: 10),
               Flexible(
                 child: Text(
-                  _esAdmin ? "Modo Admin: Agendando paseos" : "Plan de paseos usado: $_paseosUsados de $_limitePaseos horas en el mes",
+                  _esAdmin 
+                    ? "Modo Admin: Agendando paseos" 
+                    : _esPaseador 
+                      ? "Modo Paseador: Viendo paseos asignados"
+                      : "Plan de paseos usado: $_paseosUsados de $_limitePaseos horas en el mes",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),

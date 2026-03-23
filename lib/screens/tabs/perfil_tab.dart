@@ -1,18 +1,150 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 import '../login_page.dart';
 
-class PerfilTab extends StatelessWidget {
+class PerfilTab extends StatefulWidget {
   final Map userData;
 
   const PerfilTab({super.key, required this.userData});
 
   @override
+  State<PerfilTab> createState() => _PerfilTabState();
+}
+
+class _PerfilTabState extends State<PerfilTab> {
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _subirFotoUsuario() async {
+    ImageSource? sourceSeleccionado;
+    
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (BuildContext ctx) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text("Seleccionar foto de perfil", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Galería de Fotos'),
+                onTap: () { sourceSeleccionado = ImageSource.gallery; Navigator.pop(ctx); },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Tomar Foto (Cámara)'),
+                onTap: () { sourceSeleccionado = ImageSource.camera; Navigator.pop(ctx); },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (sourceSeleccionado == null) return;
+
+    try {
+      final XFile? imagen = await _picker.pickImage(
+        source: sourceSeleccionado!,
+        imageQuality: 60,
+      );
+
+      if (imagen == null) return;
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Subiendo imagen de perfil...")));
+
+      String userEmail = widget.userData['email'];
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('http://18.223.214.78:8000/upload-user-photo/$userEmail'),
+      );
+
+      request.files.add(await http.MultipartFile.fromPath('file', imagen.path));
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (!mounted) return;
+      
+      if (response.statusCode == 200) {
+        final bytes = await imagen.readAsBytes();
+        String base64Image = base64Encode(bytes);
+
+        setState(() {
+          widget.userData['foto'] = base64Image;
+        });
+
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("¡Foto de perfil actualizada!"),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ),
+        );
+      } else {
+        throw Exception("Error ${response.statusCode}: ${response.body}");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    var userData = widget.userData;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
+          GestureDetector(
+            onTap: _subirFotoUsuario,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))
+                ],
+                border: Border.all(color: Theme.of(context).colorScheme.primary, width: 3),
+              ),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 65,
+                    backgroundColor: Colors.white,
+                    backgroundImage: (userData['foto'] != null && userData['foto'].toString().trim().isNotEmpty)
+                        ? MemoryImage(base64Decode(userData['foto']))
+                        : null,
+                    child: (userData['foto'] == null || userData['foto'].toString().trim().isEmpty)
+                        ? Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 60)
+                        : null,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 20),
           ListTile(
             leading: const Icon(Icons.badge),
