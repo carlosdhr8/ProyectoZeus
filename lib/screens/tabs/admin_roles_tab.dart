@@ -58,6 +58,47 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
     }
   }
 
+  Future<void> _reseteoPasswordDialog(BuildContext context, dynamic user) async {
+    final passwordController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("Restablecer Password: ${user['nombre']}"),
+        content: TextField(
+          controller: passwordController,
+          decoration: const InputDecoration(labelText: "Nueva Contraseña"),
+          obscureText: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () async {
+              if (passwordController.text.isEmpty) return;
+              try {
+                final res = await http.post(
+                  Uri.parse("http://18.223.214.78:8000/reset_password"),
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    "user_id": user['id'],
+                    "new_password": passwordController.text,
+                    "admin_id": widget.userData['id'],
+                  }),
+                );
+                if (res.statusCode == 200) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Contraseña actualizada")));
+                  Navigator.pop(ctx);
+                }
+              } catch (e) {
+                debugPrint("Error resetting password: $e");
+              }
+            },
+            child: const Text("Asignar"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _editarInfoPaseador(BuildContext context, dynamic user) async {
     final expController = TextEditingController(text: user['walker_info']?['experiencia'] ?? "");
     final bioController = TextEditingController(text: user['walker_info']?['biografia'] ?? "");
@@ -184,6 +225,8 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
                 onSelected: (value) {
                   if (value == 'edit_info') {
                     _editarInfoPaseador(context, user);
+                  } else if (value == 'reset_pw') {
+                    _reseteoPasswordDialog(context, user);
                   } else {
                     _updateRole(user['id'], value);
                   }
@@ -192,6 +235,14 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
                   const PopupMenuItem(value: 'admin', child: Text("Hacer Admin")),
                   const PopupMenuItem(value: 'paseador', child: Text("Hacer Paseador")),
                   const PopupMenuItem(value: 'usuario', child: Text("Hacer Usuario Normal")),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(value: 'reset_pw', child: Row(
+                    children: [
+                      Icon(Icons.lock_reset, size: 18),
+                      SizedBox(width: 8),
+                      Text("Restablecer Password"),
+                    ],
+                  )),
                   if (user['rol'] == 'paseador') ...[
                     const PopupMenuDivider(),
                     const PopupMenuItem(value: 'edit_info', child: Row(

@@ -7,8 +7,9 @@ from pydantic import BaseModel
 import pyodbc
 import io
 import base64
-from typing import Optional
-from datetime import date, time
+import hashlib
+from typing import Optional, List
+from datetime import date, time, datetime, timedelta
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -71,29 +72,44 @@ class UpdateWalkerInfoRequest(BaseModel):
     experiencia: str
     biografia: str
 
+class ResetPasswordRequest(BaseModel):
+    user_id: int
+    new_password: str
+    admin_id: int # Para validar que quien lo pide es admin
+
+# --- Utilidades ---
+def hash_password(password: str) -> str:
+    """Retorna el hash SHA-256 de una contraseña en formato hexadecimal."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# --- Rutas de la API ---
 @app.post("/login")
 def login(user: LoginRequest):
     conn = None
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        # Modificación: extraemos 'id' y 'rol'
-        cursor.execute("SELECT id, email, nombre_completo, edad, lugar_residencia, tipo_plan, foto, rol FROM Usuarios WHERE email = ? AND password = ?", (user.email, user.password))
+        
+        # Hasheamos el password recibido para compararlo con el de la DB
+        hashed_input_password = hash_password(user.password)
+        
+        # Buscamos el usuario por email (tipo_plan eliminado de Usuarios)
+        cursor.execute("SELECT id, email, password, nombre_completo, edad, lugar_residencia, foto, rol FROM Usuarios WHERE email = ?", (user.email,))
         user_row = cursor.fetchone()
 
-        if user_row:
+        if user_row and user_row[2] == hashed_input_password: # Compare hashed password from DB
             id_usuario = user_row[0]
             email_usuario = user_row[1]
             
             foto_usr_b64 = None
-            if user_row[6]:
+            if user_row[6]: # user_row[6] is the 'foto' column now
                 try:
                     foto_usr_b64 = base64.b64encode(user_row[6]).decode('utf-8')
                 except Exception:
                     pass
             
             # Dinamismo de Roles
-            rol_usuario = user_row[7] if user_row[7] else 'usuario'
+            rol_usuario = user_row[7] if user_row[7] else 'usuario' # user_row[7] is the 'rol' column
             es_admin = (rol_usuario == 'admin')
             es_paseador = (rol_usuario == 'paseador')
 
@@ -213,10 +229,9 @@ def login(user: LoginRequest):
                 "user_data": {
                     "id": id_usuario,
                     "email": email_usuario,
-                    "nombre": user_row[2],
-                    "edad": user_row[3],
-                    "residencia": user_row[4],
-                    "tipo_plan": user_row[5],
+                    "nombre": user_row[3], # nombre_completo
+                    "edad": user_row[4], # edad
+                    "residencia": user_row[5], # lugar_residencia
                     "foto": foto_usr_b64,
                     "rol": rol_usuario,
                     "es_admin": es_admin,
@@ -235,10 +250,25 @@ def register(user: RegisterRequest):
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO Usuarios (email, password, nombre_completo, edad, lugar_residencia, tipo_plan) VALUES (?, ?, ?, ?, ?, 'Sin Plan')",
-                       (user.email, user.password, user.nombre_completo, user.edad, user.lugar_residencia))
+        
+        # Verificar si el usuario ya existe
+        cursor.execute("SELECT email FROM Usuarios WHERE email = ?", (user.email,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="El correo ya está registrado")
+        
+        # Hashear el password antes de guardar
+        hashed_password = hash_password(user.password)
+        
+        query = """
+            INSERT INTO Usuarios (email, password, nombre_completo, edad, lugar_residencia, rol)
+            VALUES (?, ?, ?, ?, ?, 'usuario')
+        """
+        cursor.execute(query, (user.email, hashed_password, user.nombre_completo, user.edad, user.lugar_residencia))
         conn.commit()
-        return {"status": "success"}
+        return {"status": "success", "message": "Usuario registrado exitosamente"}
+    except Exception as e:
+        if conn: conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()
 
@@ -708,6 +738,31 @@ def update_walker_info(req: UpdateWalkerInfoRequest):
         )
         conn.commit()
         return {"status": "success", "message": "Información del paseador actualizada"}
+    except Exception as e:
+        if conn: conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+@app.post("/reset_password")
+def reset_password(req: ResetPasswordRequest):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        
+        # 1. Validar que el solicitante es admin
+        cursor.execute("SELECT rol FROM Usuarios WHERE id = ?", (req.admin_id,))
+        admin_row = cursor.fetchone()
+        if not admin_row or admin_row[0] != 'admin':
+            raise HTTPException(status_code=403, detail="Solo administradores pueden resetear contraseñas")
+        
+        # 2. Hashear nueva contraseña
+        hashed_pw = hash_password(req.new_password)
+        
+        # 3. Actualizar
+        cursor.execute("UPDATE Usuarios SET password = ? WHERE id = ?", (hashed_pw, req.user_id))
+        conn.commit()
+        return {"status": "success", "message": "Contraseña restablecida correctamente"}
     except Exception as e:
         if conn: conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
