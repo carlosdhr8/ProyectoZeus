@@ -3,6 +3,7 @@ import 'tabs/mascotas_tab.dart';
 import 'tabs/paseadores_tab.dart';
 import 'tabs/perfil_tab.dart';
 import 'tabs/calendario_tab.dart';
+import 'tabs/admin_roles_tab.dart';
 
 class WelcomePage extends StatefulWidget {
   final Map userData;
@@ -43,6 +44,11 @@ class _WelcomePageState extends State<WelcomePage> {
     if (!esPaseador) {
       misTabs.add(const Tab(icon: Icon(Icons.directions_walk), text: "Paseador"));
       misVistas.add(PaseadoresTab(userData: widget.userData, mascotas: _listaMascotas));
+    }
+
+    if (widget.userData['es_admin'] == true) {
+      misTabs.add(const Tab(icon: Icon(Icons.admin_panel_settings), text: "Roles"));
+      misVistas.add(AdminRolesTab(userData: widget.userData));
     }
 
     misTabs.add(const Tab(icon: Icon(Icons.person), text: "Perfil"));

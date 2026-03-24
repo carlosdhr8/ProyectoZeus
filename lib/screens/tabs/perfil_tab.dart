@@ -102,6 +102,63 @@ class _PerfilTabState extends State<PerfilTab> {
     }
   }
 
+  Future<void> _editarInfoPaseador(BuildContext context) async {
+    final expController = TextEditingController(text: widget.userData['walker_info']?['experiencia'] ?? "");
+    final bioController = TextEditingController(text: widget.userData['walker_info']?['biografia'] ?? "");
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Editar Información de Paseador"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: expController,
+                decoration: const InputDecoration(labelText: "Experiencia (ej: 3 años)"),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: bioController,
+                maxLines: 4,
+                decoration: const InputDecoration(labelText: "Biografía"),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final res = await http.post(
+                  Uri.parse("http://18.223.214.78:8000/update_walker_info"),
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    "usuario_id": widget.userData['id'],
+                    "experiencia": expController.text,
+                    "biografia": bioController.text,
+                  }),
+                );
+                if (res.statusCode == 200) {
+                  setState(() {
+                    widget.userData['walker_info']['experiencia'] = expController.text;
+                    widget.userData['walker_info']['biografia'] = bioController.text;
+                  });
+                  if (context.mounted) Navigator.pop(context);
+                }
+              } catch (e) {
+                debugPrint("Error updating walker info: $e");
+              }
+            },
+            child: const Text("Guardar"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var userData = widget.userData;
@@ -166,6 +223,31 @@ class _PerfilTabState extends State<PerfilTab> {
             title: const Text("Lugar de Residencia"),
             subtitle: Text(userData['residencia'] ?? "N/A"),
           ),
+          if (userData['es_paseador'] == true) ...[
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.history_edu),
+              title: const Text("Experiencia"),
+              subtitle: Text(userData['walker_info']?['experiencia'] ?? "Sin experiencia cargada"),
+              trailing: IconButton(
+                icon: const Icon(Icons.edit, size: 20),
+                onPressed: () => _editarInfoPaseador(context),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.description),
+              title: const Text("Mi Biografía"),
+              subtitle: Text(
+                userData['walker_info']?['biografia'] ?? "Sin biografía",
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.edit, size: 20),
+                onPressed: () => _editarInfoPaseador(context),
+              ),
+            ),
+          ],
           const Spacer(),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(

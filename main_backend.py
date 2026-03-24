@@ -62,6 +62,15 @@ class PaseoRequest(BaseModel):
     admin_email: str
     es_admin: bool
 
+class UpdateUserRoleRequest(BaseModel):
+    user_id: int
+    nuevo_rol: str
+
+class UpdateWalkerInfoRequest(BaseModel):
+    usuario_id: int
+    experiencia: str
+    biografia: str
+
 @app.post("/login")
 def login(user: LoginRequest):
     conn = None
@@ -92,10 +101,11 @@ def login(user: LoginRequest):
                 # El admin ve todo
                 pets_query = """
                     SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, U.nombre_completo, M.usuario_email, M.tipo_plan, M.foto,
-                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
+                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, UP.foto
                     FROM Mascotas M
                     INNER JOIN Usuarios U ON M.usuario_email = U.email
                     LEFT JOIN Paseadores P ON M.paseador_id = P.id
+                    LEFT JOIN Usuarios UP ON P.usuario_id = UP.id
                     ORDER BY M.usuario_email
                 """
                 cursor.execute(pets_query)
@@ -103,10 +113,11 @@ def login(user: LoginRequest):
                 # El paseador ve solo las mascotas vinculadas a su usuario_id en Paseadores
                 pets_query = """
                     SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, U.nombre_completo, M.usuario_email, M.tipo_plan, M.foto,
-                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
+                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, UP.foto
                     FROM Mascotas M
                     INNER JOIN Usuarios U ON M.usuario_email = U.email
                     INNER JOIN Paseadores P ON M.paseador_id = P.id
+                    LEFT JOIN Usuarios UP ON P.usuario_id = UP.id
                     WHERE P.usuario_id = ?
                 """
                 cursor.execute(pets_query, (id_usuario,))
@@ -114,9 +125,10 @@ def login(user: LoginRequest):
                 # Un usuario normal ve solo sus mascotas
                 pets_query = """
                     SELECT M.id, M.nombre, M.raza, M.tamano, M.peso, M.descripcion, M.edad, NULL, M.usuario_email, M.tipo_plan, M.foto,
-                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, P.foto
+                           P.id as paseador_id, P.nombre_completo as paseador_nombre, P.experiencia, P.biografia, UP.foto
                     FROM Mascotas M
                     LEFT JOIN Paseadores P ON M.paseador_id = P.id
+                    LEFT JOIN Usuarios UP ON P.usuario_id = UP.id
                     WHERE M.usuario_email = ?
                 """
                 cursor.execute(pets_query, (email_usuario,))
@@ -187,11 +199,20 @@ def login(user: LoginRequest):
                                 conn.commit()
                                 pet["plan_mascota"] = "Sin Plan"
 
+            # --- Información adicional si es PASEADOR ---
+            walker_info = {"experiencia": "", "biografia": ""}
+            if es_paseador:
+                cursor.execute("SELECT experiencia, biografia FROM Paseadores WHERE usuario_id = ?", (id_usuario,))
+                w_row = cursor.fetchone()
+                if w_row:
+                    walker_info["experiencia"] = w_row[0] or ""
+                    walker_info["biografia"] = w_row[1] or ""
+
             return {
                 "status": "success",
                 "user_data": {
-                    "id": user_row[0],
-                    "email": user_row[1],
+                    "id": id_usuario,
+                    "email": email_usuario,
                     "nombre": user_row[2],
                     "edad": user_row[3],
                     "residencia": user_row[4],
@@ -199,7 +220,8 @@ def login(user: LoginRequest):
                     "foto": foto_usr_b64,
                     "rol": rol_usuario,
                     "es_admin": es_admin,
-                    "es_paseador": es_paseador
+                    "es_paseador": es_paseador,
+                    "walker_info": walker_info
                 },
                 "mascotas": mascotas
             }
@@ -325,36 +347,7 @@ async def upload_pet_photo_api(pet_id: int, file: UploadFile = File(...)):
     finally:
         if conn: conn.close()
 
-@app.post("/upload-walker-photo/{walker_id}")
-async def upload_walker_photo_api(walker_id: int, file: UploadFile = File(...)):
-    conn = None
-    try:
-        contents = await file.read()
-        if not contents:
-            raise HTTPException(status_code=400, detail="El archivo está vacío")
-
-        img = Image.open(io.BytesIO(contents))
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-
-        # Foto un poco más grande (o misma calidad)
-        img.thumbnail((500, 500))
-
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='JPEG', quality=85)
-        img_data = img_byte_arr.getvalue()
-
-        conn = pyodbc.connect(conn_str)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE Paseadores SET foto = ? WHERE id = ?", (pyodbc.Binary(img_data), walker_id))
-        conn.commit()
-
-        return {"status": "success", "message": "Foto del paseador guardada correctamente"}
-    except Exception as e:
-        print(f"Error subiendo foto paseador: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if conn: conn.close()
+# Nota: El endpoint /upload-walker-photo fue eliminado ya que las fotos ahora son centralizadas en Usuarios.
 
 @app.post("/upload-user-photo/{user_email}")
 async def upload_user_photo_api(user_email: str, file: UploadFile = File(...)):
@@ -446,8 +439,12 @@ def get_all_walkers():
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        # Se agrego el campo "biografia" y "foto" a la consulta SQL
-        cursor.execute("SELECT id, nombre_completo, experiencia, biografia, foto FROM Paseadores")
+        cursor.execute("""
+            SELECT P.id, P.nombre_completo, P.experiencia, P.biografia, U.foto 
+            FROM Paseadores P
+            LEFT JOIN Usuarios U ON P.usuario_id = U.id
+            WHERE P.activo = 1
+        """)
         rows = cursor.fetchall()
         
         walkers = []
@@ -618,6 +615,101 @@ def paseador_agenda(paseador_id: int, anio: int, mes: int):
         
         return {"mes": mes, "anio": anio, "paseos": pasos}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+# --- GESTIÓN DE ROLES (ADMIN) ---
+
+@app.get("/get_all_users")
+def get_all_users():
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT U.id, U.email, U.nombre_completo, U.rol, U.foto, P.experiencia, P.biografia 
+            FROM Usuarios U
+            LEFT JOIN Paseadores P ON U.id = P.usuario_id
+            ORDER BY U.nombre_completo
+        """)
+        rows = cursor.fetchall()
+        
+        users = []
+        for r in rows:
+            foto_b64 = None
+            if r[4]:
+                try:
+                    foto_b64 = base64.b64encode(r[4]).decode('utf-8')
+                except Exception:
+                    pass
+            users.append({
+                "id": r[0],
+                "email": r[1],
+                "nombre": r[2],
+                "rol": r[3] if r[3] else 'usuario',
+                "foto": foto_b64,
+                "walker_info": {
+                    "experiencia": r[5] or "",
+                    "biografia": r[6] or ""
+                }
+            })
+        return users
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.post("/update_user_role")
+def update_user_role(req: UpdateUserRoleRequest):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        
+        # 1. Actualizar el rol en Usuarios
+        cursor.execute("UPDATE Usuarios SET rol = ? WHERE id = ?", (req.nuevo_rol, req.user_id))
+        
+        # 2. Gestión de tabla Paseadores (Activo/Inactivo)
+        if req.nuevo_rol == 'paseador':
+            cursor.execute("SELECT nombre_completo FROM Usuarios WHERE id = ?", (req.user_id,))
+            usr_row = cursor.fetchone()
+            if usr_row:
+                nombre = usr_row[0]
+                cursor.execute("SELECT id FROM Paseadores WHERE usuario_id = ?", (req.user_id,))
+                if not cursor.fetchone():
+                    cursor.execute(
+                        "INSERT INTO Paseadores (nombre_completo, experiencia, biografia, usuario_id, activo) VALUES (?, ?, ?, ?, 1)",
+                        (nombre, "Sin experiencia cargada", "Biografía por definir", req.user_id)
+                    )
+                else:
+                    cursor.execute("UPDATE Paseadores SET activo = 1 WHERE usuario_id = ?", (req.user_id,))
+        else:
+            # Si ya no es paseador, lo marcamos como inactivo para que no salga en listas de asignación
+            cursor.execute("UPDATE Paseadores SET activo = 0 WHERE usuario_id = ?", (req.user_id,))
+        
+        conn.commit()
+        return {"status": "success", "message": f"Rol actualizado a {req.nuevo_rol}"}
+    except Exception as e:
+        if conn: conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.post("/update_walker_info")
+def update_walker_info(req: UpdateWalkerInfoRequest):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE Paseadores SET experiencia = ?, biografia = ? WHERE usuario_id = ?",
+            (req.experiencia, req.biografia, req.usuario_id)
+        )
+        conn.commit()
+        return {"status": "success", "message": "Información del paseador actualizada"}
+    except Exception as e:
+        if conn: conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()

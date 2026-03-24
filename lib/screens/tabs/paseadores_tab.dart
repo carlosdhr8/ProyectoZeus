@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:image_picker/image_picker.dart';
 
 class PaseadoresTab extends StatefulWidget {
   final Map userData;
@@ -18,97 +17,11 @@ class PaseadoresTab extends StatefulWidget {
 }
 
 class _PaseadoresTabState extends State<PaseadoresTab> {
-  final ImagePicker _picker = ImagePicker();
+  // Se eliminó el ImagePicker ya que ya no se suben fotos desde aquí.
 
   bool get _esAdmin => widget.userData['es_admin'] ?? false;
 
-  Future<void> _subirFotoPaseador(int walkerId) async {
-    ImageSource? sourceSeleccionado;
-    
-    await showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (BuildContext ctx) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text("Seleccionar foto", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Galería de Fotos'),
-                onTap: () { sourceSeleccionado = ImageSource.gallery; Navigator.pop(ctx); },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Tomar Foto (Cámara)'),
-                onTap: () { sourceSeleccionado = ImageSource.camera; Navigator.pop(ctx); },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (sourceSeleccionado == null) return;
-
-    try {
-      final XFile? imagen = await _picker.pickImage(
-        source: sourceSeleccionado!,
-        imageQuality: 50,
-      );
-
-      if (imagen == null) return;
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Subiendo imagen del paseador...")));
-
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('http://18.223.214.78:8000/upload-walker-photo/$walkerId'),
-      );
-
-      request.files.add(await http.MultipartFile.fromPath('file', imagen.path));
-
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (!mounted) return;
-      
-      if (response.statusCode == 200) {
-        final bytes = await imagen.readAsBytes();
-        String base64Image = base64Encode(bytes);
-
-        setState(() {
-          for (var pet in widget.mascotas) {
-            if (pet['paseador'] != null && pet['paseador']['id'] == walkerId) {
-              pet['paseador']['foto'] = base64Image;
-            }
-          }
-        });
-
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("¡Foto de paseador actualizada!"),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
-      } else {
-        throw Exception("Error ${response.statusCode}: ${response.body}");
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error: $e"),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-    }
-  }
+  // Se eliminó _subirFotoPaseador ya que las fotos ahora vienen de la tabla Usuarios centralizada.
 
   Future<void> _asignarPaseadorDialog(int petId) async {
     try {
@@ -295,26 +208,23 @@ class _PaseadoresTabState extends State<PaseadoresTab> {
                               ],
                             ),
                             const SizedBox(height: 15),
-                            GestureDetector(
-                              onTap: _esAdmin ? () => _subirFotoPaseador(paseador['id']) : null,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))
-                                  ],
-                                  border: Border.all(color: Theme.of(context).colorScheme.primary, width: 3),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 55, // Mucho más grande que la mascota
-                                  backgroundColor: Colors.white,
-                                  backgroundImage: (paseador['foto'] != null && paseador['foto'].toString().trim().isNotEmpty)
-                                      ? MemoryImage(base64Decode(paseador['foto']))
-                                      : null,
-                                  child: (paseador['foto'] == null || paseador['foto'].toString().trim().isEmpty)
-                                      ? Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary, size: 36)
-                                      : null,
-                                ),
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))
+                                ],
+                                border: Border.all(color: Theme.of(context).colorScheme.primary, width: 3),
+                              ),
+                              child: CircleAvatar(
+                                radius: 55, // Mucho más grande que la mascota
+                                backgroundColor: Colors.white,
+                                backgroundImage: (paseador['foto'] != null && paseador['foto'].toString().trim().isNotEmpty)
+                                    ? MemoryImage(base64Decode(paseador['foto']))
+                                    : null,
+                                child: (paseador['foto'] == null || paseador['foto'].toString().trim().isEmpty)
+                                    ? Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 36)
+                                    : null,
                               ),
                             ),
                             const SizedBox(height: 15),
