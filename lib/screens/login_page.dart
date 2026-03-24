@@ -189,7 +189,10 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: () {
                             if (_formKey.currentState!.validate()) _login();
                           },
-                          child: const Text('INGRESAR AL OLIMPO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('INGRESAR AL OLIMPO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 25),

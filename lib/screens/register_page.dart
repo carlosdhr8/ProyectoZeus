@@ -207,7 +207,10 @@ class _RegisterPageState extends State<RegisterPage> {
                                 ),
                               ),
                               onPressed: _registrar,
-                              child: const Text("CREAR CUENTA ZEUS", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text("CREAR CUENTA ZEUS", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 1)),
+                              ),
                             ),
                           ),
                     ],
