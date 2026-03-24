@@ -162,10 +162,11 @@ class _PerfilTabState extends State<PerfilTab> {
   @override
   Widget build(BuildContext context) {
     var userData = widget.userData;
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
           GestureDetector(
             onTap: _subirFotoUsuario,
             child: Container(
@@ -248,28 +249,29 @@ class _PerfilTabState extends State<PerfilTab> {
               ),
             ),
           ],
-          const Spacer(),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.error,
-                width: 1.5,
+            const SizedBox(height: 30),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.error,
+                  width: 1.5,
+                ),
+                minimumSize: const Size.fromHeight(50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              minimumSize: const Size.fromHeight(50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+              onPressed: () => Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (route) => false,
               ),
+              icon: const Icon(Icons.logout),
+              label: const Text("Cerrar Sesión"),
             ),
-            onPressed: () => Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const LoginPage()),
-              (route) => false,
-            ),
-            icon: const Icon(Icons.logout),
-            label: const Text("Cerrar Sesión"),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

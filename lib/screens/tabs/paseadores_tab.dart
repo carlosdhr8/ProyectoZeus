@@ -196,16 +196,19 @@ class _PaseadoresTabState extends State<PaseadoresTab> {
                         ),
                         child: Column(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.directions_walk, color: Colors.brown, size: 28),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  "MI PASEADOR ASIGNADO",
-                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2, color: Colors.brown),
-                                ),
-                              ],
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.directions_walk, color: Colors.brown, size: 28),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    "MI PASEADOR ASIGNADO",
+                                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1.2, color: Colors.brown),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 15),
                             Container(
