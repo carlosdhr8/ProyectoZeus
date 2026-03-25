@@ -73,8 +73,9 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.zeus.petapp',
+                  urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                  subdomains: const ['a', 'b', 'c', 'd'],
+                  userAgentPackageName: 'com.zeus.pet_care_app',
                 ),
                 MarkerLayer(
                   markers: [
