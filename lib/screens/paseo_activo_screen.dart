@@ -16,6 +16,7 @@ class PaseoActivoScreen extends StatefulWidget {
 class _PaseoActivoScreenState extends State<PaseoActivoScreen> {
   WebSocketChannel? _channel;
   StreamSubscription<Position>? _positionStream;
+  Timer? _heartbeatTimer;
   bool _isTransmitting = false;
 
   @override
@@ -66,6 +67,16 @@ class _PaseoActivoScreenState extends State<PaseoActivoScreen> {
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {
       _enviarCoordenadas(position);
     });
+
+    // 2. Iniciar Heartbeat cada 20 segundos (para mantenerse "vivo" si no hay movimiento)
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 20), (timer) async {
+      try {
+        Position current = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+        _enviarCoordenadas(current);
+      } catch (e) {
+        debugPrint("Error heartbeat: $e");
+      }
+    });
   }
 
   void _enviarCoordenadas(Position position) {
@@ -82,12 +93,14 @@ class _PaseoActivoScreenState extends State<PaseoActivoScreen> {
 
   void _detenerTransmision() {
     _positionStream?.cancel();
+    _heartbeatTimer?.cancel();
     setState(() => _isTransmitting = false);
   }
 
   @override
   void dispose() {
     _positionStream?.cancel();
+    _heartbeatTimer?.cancel();
     _channel?.sink.close();
     super.dispose();
   }
