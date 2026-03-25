@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import '../../widgets/image_viewer_dialog.dart';
 import '../login_page.dart';
 
 class PerfilTab extends StatefulWidget {
@@ -51,6 +52,21 @@ class _PerfilTabState extends State<PerfilTab> {
                   Navigator.pop(ctx);
                 },
               ),
+              if (widget.userData['foto'] != null && widget.userData['foto'].toString().trim().isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.visibility, color: Colors.blue),
+                  title: const Text('Ver Foto Actual', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    showDialog(
+                      context: context,
+                      builder: (context) => ImageViewerDialog(
+                        base64Image: widget.userData['foto'],
+                        title: "Mi Perfil",
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         );

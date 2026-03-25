@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import '../../widgets/image_viewer_dialog.dart';
 
 class MascotasTab extends StatefulWidget {
   final Map userData;
@@ -71,6 +72,22 @@ class _MascotasTabState extends State<MascotasTab> {
                 title: const Text('Tomar Foto (Cámara)'),
                 onTap: () { sourceSeleccionado = ImageSource.camera; Navigator.pop(ctx); },
               ),
+              if (widget.mascotas.any((m) => m['id'] == petId && m['foto'] != null && m['foto'].toString().trim().isNotEmpty))
+                ListTile(
+                  leading: const Icon(Icons.visibility, color: Colors.blue),
+                  title: const Text('Ver Foto Actual', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    final pet = widget.mascotas.firstWhere((m) => m['id'] == petId);
+                    Navigator.pop(ctx);
+                    showDialog(
+                      context: context,
+                      builder: (context) => ImageViewerDialog(
+                        base64Image: pet['foto'],
+                        title: pet['nombre'],
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         );
