@@ -25,6 +25,7 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
     setState(() => _isLoading = true);
     try {
       final res = await http.get(Uri.parse("http://18.223.214.78:8000/get_all_users"));
+      if (!mounted) return;
       if (res.statusCode == 200) {
         setState(() {
           _usuarios = jsonDecode(res.body);
@@ -33,6 +34,7 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
       }
     } catch (e) {
       debugPrint("Error fetching users: $e");
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -45,6 +47,7 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
         body: jsonEncode({"user_id": userId, "nuevo_rol": nuevoRol}),
       );
 
+      if (!mounted) return;
       if (res.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Rol actualizado a $nuevoRol")),
@@ -52,6 +55,7 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
         _fetchUsers(); // Recargamos para ver cambios
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error actualizando rol: $e")),
       );
@@ -84,6 +88,7 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
                     "admin_id": widget.userData['id'],
                   }),
                 );
+                if (!mounted) return;
                 if (res.statusCode == 200) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Contraseña actualizada")));
                   Navigator.pop(ctx);
@@ -136,6 +141,7 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
                     "biografia": bioController.text,
                   }),
                 );
+                if (!mounted) return;
                 if (res.statusCode == 200) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Info actualizada")));
                   Navigator.pop(contextDialog);
