@@ -46,9 +46,15 @@ class PaseoService {
       debugPrint("Error GPS inicial: $e");
     }
 
-    const locationSettings = LocationSettings(
+    final locationSettings = AndroidSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 5,
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
+        notificationTitle: "Paseo en Curso",
+        notificationText: "Zeus Pet App está rastreando el recorrido de la mascota.",
+        notificationIcon: AndroidResource(name: 'launcher_icon'),
+        enableWakeLock: true,
+      ),
     );
 
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {

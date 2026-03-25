@@ -74,34 +74,67 @@ class _WelcomePageState extends State<WelcomePage> {
               initialData: PaseoService().isTransmitting,
               builder: (context, snapshot) {
                 if (snapshot.data == true) {
-                  return Container(
-                    color: Colors.amber[700],
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.directions_walk, color: Colors.white),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            "CAMINATA EN CURSO",
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  return Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF001F3F), // Navy Zeus
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: const Color(0xFFD4AF37), width: 2), // Gold
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PaseoActivoScreen(
-                                  paseoData: PaseoService().activePaseoData!,
-                                  serverUrl: 'ws://18.223.214.78:8000',
+                        ],
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.directions_walk, color: Color(0xFFD4AF37), size: 28),
+                          const SizedBox(width: 15),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "PASEO ACTIVO",
+                                  style: TextStyle(
+                                    color: Colors.white, 
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          child: const Text("VER", style: TextStyle(color: Colors.white, decoration: TextDecoration.underline)),
-                        )
-                      ],
+                                Text(
+                                  "Transmitiendo GPS en vivo...",
+                                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => PaseoActivoScreen(
+                                    paseoData: PaseoService().activePaseoData!,
+                                    serverUrl: 'ws://18.223.214.78:8000',
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFD4AF37),
+                              foregroundColor: const Color(0xFF001F3F),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                            ),
+                            child: const Text("IR A PASEO", style: TextStyle(fontWeight: FontWeight.bold)),
+                          )
+                        ],
+                      ),
                     ),
                   );
                 }

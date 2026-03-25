@@ -117,19 +117,28 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
                       urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
                       subdomains: const ['a', 'b', 'c', 'd'],
                       userAgentPackageName: 'com.zeus.pet_care_app',
-                    ),
-                    PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: _routePoints,
-                          color: Colors.blue,
-                          strokeWidth: 4,
+                  ),
+                  // Estela de patitas (historial)
+                  MarkerLayer(
+                    markers: _routePoints.asMap().entries.where((entry) {
+                      // Solo dibujar una patita cada 3 puntos para no saturar el mapa
+                      return entry.key % 3 == 0;
+                    }).map((entry) {
+                      return Marker(
+                        point: entry.value,
+                        width: 20,
+                        height: 20,
+                        child: Icon(
+                          Icons.pets,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary.withAlpha(150),
                         ),
-                      ],
-                    ),
-                    if (_currentWalkerPosition != null)
-                      MarkerLayer(
-                        markers: [
+                      );
+                    }).toList(),
+                  ),
+                  if (_currentWalkerPosition != null)
+                    MarkerLayer(
+                      markers: [
                           Marker(
                             point: _currentWalkerPosition!,
                             width: 60,
