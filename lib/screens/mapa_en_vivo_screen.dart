@@ -28,13 +28,19 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
     _channel = WebSocketChannel.connect(Uri.parse(url));
 
     _channel!.stream.listen((message) {
-      final data = jsonDecode(message);
-      if (data['lat'] != null && data['lng'] != null) {
-        final newMarker = LatLng(data['lat'], data['lng']);
-        setState(() {
-          _currentWalkerPosition = newMarker;
-        });
-        _mapController.move(newMarker, 16.0); // Animar mapa a la nueva ubicacion
+      if (!mounted) return;
+      try {
+        final data = jsonDecode(message);
+        if (data['lat'] != null && data['lng'] != null) {
+          final newMarker = LatLng(data['lat'], data['lng']);
+          setState(() {
+            _currentWalkerPosition = newMarker;
+          });
+          // Solo mover si el marcador ya existía o si es la primera vez que se carga
+          _mapController.move(newMarker, 16.0); 
+        }
+      } catch (e) {
+        debugPrint("Error procesando mensaje WS: $e");
       }
     });
   }
