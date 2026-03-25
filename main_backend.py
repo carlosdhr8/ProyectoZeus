@@ -839,30 +839,40 @@ manager = ConnectionManager()
 
 @app.websocket("/ws/paseo/{paseo_id}")
 async def websocket_paseo(websocket: WebSocket, paseo_id: str):
-    # Limpiamos el ID por si llega con basura (como el '#' que reportaron)
     clean_id_str = str(paseo_id).replace('#', '').strip()
     try:
         p_id = int(clean_id_str)
-        # Validar si el paseo es para hoy
+    except ValueError:
+        await websocket.accept()
+        await websocket.close(code=1003)
+        return
+
+    await manager.connect(websocket, p_id)
+    
+    # Obtener fecha para validación de transmisión (broadcast)
+    fecha_paseo_obj = None
+    try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         cursor.execute("SELECT fecha_paseo FROM Paseos WHERE id_paseo = ?", (p_id,))
         row = cursor.fetchone()
         if row:
-            fecha_paseo = row[0]
-            if str(fecha_paseo) != str(date.today()):
-                await websocket.close(code=1008) # Policy Violation
-                return
+            fecha_paseo_obj = row[0]
+            if isinstance(fecha_paseo_obj, datetime):
+                fecha_paseo_obj = fecha_paseo_obj.date()
         conn.close()
-    except ValueError:
-        await websocket.close(code=1003) # Invalid data
-        return
+    except Exception as e:
+        print(f"Error val fecha: {e}")
 
-    await manager.connect(websocket, p_id)
     try:
         while True:
             data = await websocket.receive_json()
-            await manager.broadcast(data, p_id)
+            # Solo permitimos transmitir si el paseo es para hoy
+            if fecha_paseo_obj and fecha_paseo_obj == date.today():
+                await manager.broadcast(data, p_id)
+            else:
+                # Ignoramos datos entrantes de días distintos para evitar "fake starts"
+                pass
     except WebSocketDisconnect:
         manager.disconnect(websocket, p_id)
 
