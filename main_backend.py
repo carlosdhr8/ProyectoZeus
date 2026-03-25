@@ -840,28 +840,47 @@ class ConnectionManager:
                 del self.active_connections[paseo_id]
 
     async def broadcast(self, message: dict, paseo_id: int):
-        # Guardamos como última posición conocida
-        self.last_positions[paseo_id] = message
-        
-        # Guardar en base de datos para el historial
+        # Identificar paseos hermanos (otros paseos del mismo paseador hoy)
+        siblings = []
+        try:
+            conn_sib = pyodbc.connect(conn_str)
+            cursor_sib = conn_sib.cursor()
+            cursor_sib.execute("""
+                SELECT id_paseo FROM Paseos 
+                WHERE paseador_id = (SELECT paseador_id FROM Paseos WHERE id_paseo = ?)
+                AND fecha_paseo = CAST(GETDATE() AS DATE)
+                AND id_paseo != ?
+            """, (paseo_id, paseo_id))
+            siblings = [r[0] for r in cursor_sib.fetchall()]
+            conn_sib.close()
+        except:
+            pass
+
+        all_affected_ids = [paseo_id] + siblings
+
+        # Guardar en base de datos para el historial de TODOS los involucrados
         try:
             conn = pyodbc.connect(conn_str)
             cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO HistorialPaseos (paseo_id, lat, lng) VALUES (?, ?, ?)",
-                (paseo_id, message.get('lat'), message.get('lng'))
-            )
+            for p_id in all_affected_ids:
+                cursor.execute(
+                    "INSERT INTO HistorialPaseos (paseo_id, lat, lng) VALUES (?, ?, ?)",
+                    (p_id, message.get('lat'), message.get('lng'))
+                )
             conn.commit()
             conn.close()
         except Exception as e:
-            print(f"Error guardando historial: {e}")
+            print(f"Error guardando historial múltiple: {e}")
 
-        if paseo_id in self.active_connections:
-            for connection in self.active_connections[paseo_id]:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    pass
+        # Enviar a los suscriptores de cada paseo afectado
+        for p_id in all_affected_ids:
+            self.last_positions[p_id] = message
+            if p_id in self.active_connections:
+                for connection in self.active_connections[p_id]:
+                    try:
+                        await connection.send_json(message)
+                    except Exception:
+                        pass
 
 manager = ConnectionManager()
 
