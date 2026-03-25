@@ -782,12 +782,18 @@ class ConnectionManager:
     def __init__(self):
         # Almacena las conexiones agrupadas por el ID del paseo
         self.active_connections: Dict[int, List[WebSocket]] = {}
+        # Almacena la última posición conocida de cada paseo para nuevos espectadores
+        self.last_positions: Dict[int, dict] = {}
 
     async def connect(self, websocket: WebSocket, paseo_id: int):
         await websocket.accept()
         if paseo_id not in self.active_connections:
             self.active_connections[paseo_id] = []
         self.active_connections[paseo_id].append(websocket)
+        
+        # Si ya tenemos una posición guardada, se la mandamos de inmediato al nuevo integrante
+        if paseo_id in self.last_positions:
+            await websocket.send_json(self.last_positions[paseo_id])
 
     def disconnect(self, websocket: WebSocket, paseo_id: int):
         if paseo_id in self.active_connections:
@@ -797,6 +803,9 @@ class ConnectionManager:
                 del self.active_connections[paseo_id]
 
     async def broadcast(self, message: dict, paseo_id: int):
+        # Guardamos como última posición conocida
+        self.last_positions[paseo_id] = message
+        
         if paseo_id in self.active_connections:
             for connection in self.active_connections[paseo_id]:
                 try:

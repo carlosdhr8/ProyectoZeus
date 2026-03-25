@@ -49,6 +49,14 @@ class _PaseoActivoScreenState extends State<PaseoActivoScreen> {
     if (permission == LocationPermission.deniedForever) return;
 
     setState(() => _isTransmitting = true);
+    
+    // 1. Enviar posición actual de inmediato al conectar
+    try {
+      Position current = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      _enviarCoordenadas(current);
+    } catch (e) {
+      debugPrint("Error obteniendo posición inicial: $e");
+    }
 
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
@@ -56,16 +64,20 @@ class _PaseoActivoScreenState extends State<PaseoActivoScreen> {
     );
 
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {
-      if (_channel != null) {
-        final data = {
-          "lat": position.latitude,
-          "lng": position.longitude,
-          "timestamp": DateTime.now().toIso8601String(),
-          "status": "active"
-        };
-        _channel!.sink.add(jsonEncode(data));
-      }
+      _enviarCoordenadas(position);
     });
+  }
+
+  void _enviarCoordenadas(Position position) {
+    if (_channel != null) {
+      final data = {
+        "lat": position.latitude,
+        "lng": position.longitude,
+        "timestamp": DateTime.now().toIso8601String(),
+        "status": "active"
+      };
+      _channel!.sink.add(jsonEncode(data));
+    }
   }
 
   void _detenerTransmision() {
