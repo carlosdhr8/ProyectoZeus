@@ -1,6 +1,5 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import UploadFile, File
 from fastapi.responses import Response
 from PIL import Image, ImageOps
 from pydantic import BaseModel
@@ -8,7 +7,7 @@ import pyodbc
 import io
 import base64
 import hashlib
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import date, time, datetime, timedelta
 
 app = FastAPI()
@@ -216,13 +215,14 @@ def login(user: LoginRequest):
                                 pet["plan_mascota"] = "Sin Plan"
 
             # --- Información adicional si es PASEADOR ---
-            walker_info = {"experiencia": "", "biografia": ""}
+            walker_info = {"id": None, "experiencia": "", "biografia": ""}
             if es_paseador:
-                cursor.execute("SELECT experiencia, biografia FROM Paseadores WHERE usuario_id = ?", (id_usuario,))
+                cursor.execute("SELECT id, experiencia, biografia FROM Paseadores WHERE usuario_id = ?", (id_usuario,))
                 w_row = cursor.fetchone()
                 if w_row:
-                    walker_info["experiencia"] = w_row[0] or ""
-                    walker_info["biografia"] = w_row[1] or ""
+                    walker_info["id"] = w_row[0]
+                    walker_info["experiencia"] = w_row[1] or ""
+                    walker_info["biografia"] = w_row[2] or ""
 
             return {
                 "status": "success",
@@ -236,6 +236,7 @@ def login(user: LoginRequest):
                     "rol": rol_usuario,
                     "es_admin": es_admin,
                     "es_paseador": es_paseador,
+                    "walker_id": walker_info["id"],
                     "walker_info": walker_info
                 },
                 "mascotas": mascotas
@@ -607,7 +608,7 @@ def mis_paseos(pet_id: int, anio: int, mes: int):
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, u.nombre_completo as nombre_paseador
+            SELECT p.id_paseo as id, p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, u.nombre_completo as nombre_paseador
             FROM Paseos p
             JOIN Paseadores u ON p.paseador_id = u.id
             WHERE p.pet_id = ? AND MONTH(p.fecha_paseo) = ? AND YEAR(p.fecha_paseo) = ?
@@ -635,7 +636,7 @@ def paseador_agenda(paseador_id: int, anio: int, mes: int):
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, m.nombre as nombre_mascota, m.usuario_email as nombre_dueno
+            SELECT p.id_paseo as id, p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, m.nombre as nombre_mascota, m.usuario_email as nombre_dueno
             FROM Paseos p
             JOIN Mascotas m ON p.pet_id = m.id
             WHERE p.paseador_id = ? AND MONTH(p.fecha_paseo) = ? AND YEAR(p.fecha_paseo) = ?
@@ -775,3 +776,50 @@ def reset_password(req: ResetPasswordRequest):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()
+
+# --- WEBSOCKETS (Rastreo GPS en vivo) ---
+class ConnectionManager:
+    def __init__(self):
+        # Almacena las conexiones agrupadas por el ID del paseo
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, paseo_id: int):
+        await websocket.accept()
+        if paseo_id not in self.active_connections:
+            self.active_connections[paseo_id] = []
+        self.active_connections[paseo_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, paseo_id: int):
+        if paseo_id in self.active_connections:
+            if websocket in self.active_connections[paseo_id]:
+                self.active_connections[paseo_id].remove(websocket)
+            if len(self.active_connections[paseo_id]) == 0:
+                del self.active_connections[paseo_id]
+
+    async def broadcast(self, message: dict, paseo_id: int):
+        if paseo_id in self.active_connections:
+            for connection in self.active_connections[paseo_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/paseo/{paseo_id}")
+async def websocket_paseo(websocket: WebSocket, paseo_id: str):
+    # Limpiamos el ID por si llega con basura (como el '#' que reportaron)
+    clean_id_str = str(paseo_id).replace('#', '').strip()
+    try:
+        p_id = int(clean_id_str)
+    except ValueError:
+        await websocket.close(code=1003) # Invalid data
+        return
+
+    await manager.connect(websocket, p_id)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            await manager.broadcast(data, p_id)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, p_id)

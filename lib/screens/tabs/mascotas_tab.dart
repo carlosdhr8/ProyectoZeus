@@ -446,7 +446,7 @@ class _MascotasTabState extends State<MascotasTab> {
                               child: Row(
                                 children: [
                                   GestureDetector(
-                                    onTap: () => _subirFotoMascota(pet['id']),
+                                    onTap: _esPaseador ? null : () => _subirFotoMascota(pet['id']),
                                     child: Container(
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,

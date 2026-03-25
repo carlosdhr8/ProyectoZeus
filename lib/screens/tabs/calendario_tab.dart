@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../paseo_activo_screen.dart';
+import '../mapa_en_vivo_screen.dart';
 
 class CalendarioTab extends StatefulWidget {
   final Map userData;
@@ -26,14 +28,17 @@ class _CalendarioTabState extends State<CalendarioTab> {
   List<dynamic> _planesActivos = [];
 
   bool get _esAdmin => widget.userData['es_admin'] ?? false;
-  bool get _esPaseador => widget.userData['es_paseador'] ?? false;
+  bool get _esPaseador => widget.userData['rol'] == 'paseador' || (widget.userData['es_paseador'] ?? false);
   String get _adminEmail => widget.userData['email'] ?? "";
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    if (widget.mascotas.isNotEmpty) {
+    if (_esPaseador) {
+      _selectedValue = "walker_${widget.userData['walker_id']}";
+      _cargarPaseos();
+    } else if (widget.mascotas.isNotEmpty) {
       _selectedValue = "pet_${widget.mascotas.first['id']}";
       _cargarPaseos();
     }
@@ -247,38 +252,39 @@ class _CalendarioTabState extends State<CalendarioTab> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: DropdownButton<dynamic>(
-            value: _selectedValue,
-            isExpanded: true,
-            items: [
-              ...widget.mascotas
-                  .map(
-                    (m) => DropdownMenuItem<dynamic>(
-                      value: "pet_${m['id']}",
-                      child: Text("Mascota: ${m['nombre']} - ${m['raza']}"),
-                    ),
-                  )
-                  .toList(),
-              if (_esAdmin)
-                ..._paseadores
+        if (!_esPaseador)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: DropdownButton<dynamic>(
+              value: _selectedValue,
+              isExpanded: true,
+              items: [
+                ...widget.mascotas
                     .map(
-                      (p) => DropdownMenuItem<dynamic>(
-                        value: "walker_${p['id']}",
-                        child: Text("Paseador: ${p['nombre']}"),
+                      (m) => DropdownMenuItem<dynamic>(
+                        value: "pet_${m['id']}",
+                        child: Text("Mascota: ${m['nombre']} - ${m['raza']}"),
                       ),
                     )
                     .toList(),
-            ],
-            onChanged: (v) {
-              if (v != null) {
-                setState(() => _selectedValue = v.toString());
-                _cargarPaseos();
-              }
-            },
+                if (_esAdmin)
+                  ..._paseadores
+                      .map(
+                        (p) => DropdownMenuItem<dynamic>(
+                          value: "walker_${p['id']}",
+                          child: Text("Paseador: ${p['nombre']}"),
+                        ),
+                      )
+                      .toList(),
+              ],
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() => _selectedValue = v.toString());
+                  _cargarPaseos();
+                }
+              },
+            ),
           ),
-        ),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -395,6 +401,51 @@ class _CalendarioTabState extends State<CalendarioTab> {
                       (isWalker
                           ? "\nDueño: ${evento['nombre_dueno'] ?? 'Anónimo'}"
                           : ""),
+                ),
+                trailing: ElevatedButton.icon(
+                  onPressed: () {
+                    try {
+                      if (_esPaseador) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PaseoActivoScreen(
+                              paseoData: evento as Map<String, dynamic>,
+                              serverUrl: 'ws://18.223.214.78:8000',
+                            ),
+                          ),
+                        ).catchError((e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error al abrir pantalla paseador: $e"))
+                          );
+                        });
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MapaEnVivoScreen(
+                              paseoData: evento as Map<String, dynamic>,
+                              serverUrl: 'ws://18.223.214.78:8000',
+                            ),
+                          ),
+                        ).catchError((e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error al abrir mapa: $e"))
+                          );
+                        });
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Error de navegación: $e"))
+                      );
+                    }
+                  },
+                  icon: Icon(_esPaseador ? Icons.play_arrow : Icons.map, size: 18),
+                  label: Text(_esPaseador ? "INICIAR" : "VER MAPA"),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               );
             }).toList(),
