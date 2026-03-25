@@ -172,8 +172,7 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
         itemBuilder: (context, index) {
           final user = _usuarios[index];
           String rol = user['rol'] ?? 'usuario';
-          String fotoB64 = user['foto'] ?? '';
-          bool hasFoto = fotoB64.isNotEmpty;
+
 
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -195,8 +194,10 @@ class _AdminRolesTabState extends State<AdminRolesTab> {
                 child: CircleAvatar(
                   radius: 28,
                   backgroundColor: Colors.grey[200],
-                  backgroundImage: hasFoto ? MemoryImage(base64Decode(fotoB64)) : null,
-                  child: !hasFoto ? const Icon(Icons.person, color: Colors.grey) : null,
+                  backgroundImage: user['has_foto'] == true 
+                    ? NetworkImage("http://18.223.214.78:8000/user_photo/${user['id']}") 
+                    : null,
+                  child: user['has_foto'] != true ? const Icon(Icons.person, color: Colors.grey) : null,
                 ),
               ),
               title: Text(

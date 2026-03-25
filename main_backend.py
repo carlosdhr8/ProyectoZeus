@@ -675,7 +675,9 @@ def get_all_users():
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT U.id, U.email, U.nombre_completo, U.rol, U.foto, P.experiencia, P.biografia 
+            SELECT U.id, U.email, U.nombre_completo, U.rol, 
+                   CASE WHEN U.foto IS NOT NULL THEN 1 ELSE 0 END as has_foto,
+                   P.experiencia, P.biografia 
             FROM Usuarios U
             LEFT JOIN Paseadores P ON U.id = P.usuario_id
             ORDER BY U.nombre_completo
@@ -684,18 +686,12 @@ def get_all_users():
         
         users = []
         for r in rows:
-            foto_b64 = None
-            if r[4]:
-                try:
-                    foto_b64 = base64.b64encode(r[4]).decode('utf-8')
-                except Exception:
-                    pass
             users.append({
                 "id": r[0],
                 "email": r[1],
                 "nombre": r[2],
                 "rol": r[3] if r[3] else 'usuario',
-                "foto": foto_b64,
+                "has_foto": bool(r[4]),
                 "walker_info": {
                     "experiencia": r[5] or "",
                     "biografia": r[6] or ""
@@ -782,6 +778,38 @@ def reset_password(req: ResetPasswordRequest):
         return {"status": "success", "message": "Contraseña restablecida correctamente"}
     except Exception as e:
         if conn: conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.get("/user_photo/{user_id}")
+def get_user_photo(user_id: int):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("SELECT foto FROM Usuarios WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            raise HTTPException(status_code=404, detail="Foto no encontrada")
+        return Response(content=row[0], media_type="image/jpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.get("/pet_photo/{pet_id}")
+def get_pet_photo(pet_id: int):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("SELECT foto FROM Mascotas WHERE id = ?", (pet_id,))
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            raise HTTPException(status_code=404, detail="Foto no encontrada")
+        return Response(content=row[0], media_type="image/jpeg")
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()
