@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import UploadFile, File
 from fastapi.responses import Response
-from PIL import Image
+from PIL import Image, ImageOps
 from pydantic import BaseModel
 import pyodbc
 import io
@@ -352,6 +352,9 @@ async def upload_pet_photo_api(pet_id: int, file: UploadFile = File(...)):
 
         # 2. Procesamiento de imagen con PIL
         img = Image.open(io.BytesIO(contents))
+        
+        # Corregir orientación basada en EXIF (evita que fotos de celulares salgan de lado)
+        img = ImageOps.exif_transpose(img)
 
         # Convertir a RGB si es necesario (evita errores con PNG transparentes al guardar en JPEG)
         if img.mode in ("RGBA", "P"):
@@ -388,6 +391,10 @@ async def upload_user_photo_api(user_email: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="El archivo está vacío")
 
         img = Image.open(io.BytesIO(contents))
+        
+        # Corregir orientación basada en EXIF
+        img = ImageOps.exif_transpose(img)
+        
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
 

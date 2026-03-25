@@ -7,7 +7,11 @@ class CalendarioTab extends StatefulWidget {
   final Map userData;
   final List mascotas;
 
-  const CalendarioTab({super.key, required this.userData, required this.mascotas});
+  const CalendarioTab({
+    super.key,
+    required this.userData,
+    required this.mascotas,
+  });
 
   @override
   State<CalendarioTab> createState() => _CalendarioTabState();
@@ -41,7 +45,9 @@ class _CalendarioTabState extends State<CalendarioTab> {
 
   Future<void> _cargarPlanes() async {
     try {
-      final res = await http.get(Uri.parse("http://18.223.214.78:8000/get_planes"));
+      final res = await http.get(
+        Uri.parse("http://18.223.214.78:8000/get_planes"),
+      );
       if (res.statusCode == 200) {
         if (!mounted) return;
         setState(() {
@@ -55,7 +61,9 @@ class _CalendarioTabState extends State<CalendarioTab> {
 
   Future<void> _cargarPaseadores() async {
     try {
-      final res = await http.get(Uri.parse("http://18.223.214.78:8000/get_all_walkers"));
+      final res = await http.get(
+        Uri.parse("http://18.223.214.78:8000/get_all_walkers"),
+      );
       if (res.statusCode == 200) {
         if (!mounted) return;
         setState(() {
@@ -73,22 +81,28 @@ class _CalendarioTabState extends State<CalendarioTab> {
       String url = "";
       if (_selectedValue!.startsWith("pet_")) {
         var petId = _selectedValue!.substring(4);
-        url = "http://18.223.214.78:8000/mis_paseos/$petId/${_focusedDay.year}/${_focusedDay.month}";
+        url =
+            "http://18.223.214.78:8000/mis_paseos/$petId/${_focusedDay.year}/${_focusedDay.month}";
       } else if (_selectedValue!.startsWith("walker_")) {
         var walkerId = _selectedValue!.substring(7);
-        url = "http://18.223.214.78:8000/paseador_agenda/$walkerId/${_focusedDay.year}/${_focusedDay.month}";
+        url =
+            "http://18.223.214.78:8000/paseador_agenda/$walkerId/${_focusedDay.year}/${_focusedDay.month}";
       }
       if (url.isEmpty) return;
-      
+
       final res = await http.get(Uri.parse(url));
-      
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final paseos = data['paseos'] as List? ?? []; // Prevención de nulo
         Map<DateTime, List<dynamic>> nuevosEventos = {};
         for (var p in paseos) {
           DateTime fechaParseada = DateTime.parse(p['fecha_paseo'].toString());
-          DateTime fechaClave = DateTime.utc(fechaParseada.year, fechaParseada.month, fechaParseada.day);
+          DateTime fechaClave = DateTime.utc(
+            fechaParseada.year,
+            fechaParseada.month,
+            fechaParseada.day,
+          );
           if (nuevosEventos[fechaClave] == null) nuevosEventos[fechaClave] = [];
           nuevosEventos[fechaClave]!.add(p);
         }
@@ -97,11 +111,19 @@ class _CalendarioTabState extends State<CalendarioTab> {
         });
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error del Servidor: ${res.statusCode} - ${res.body}")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Error del Servidor: ${res.statusCode} - ${res.body}",
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error Interno (Flutter): $e")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error Interno (Flutter): $e")));
     }
   }
 
@@ -120,10 +142,16 @@ class _CalendarioTabState extends State<CalendarioTab> {
     if (_selectedValue == null || !_selectedValue!.startsWith("pet_")) return 0;
     var petId = int.tryParse(_selectedValue!.substring(4));
     // Si no encuentra la mascota, retorna un Map vacío en vez de un Set {} que tumba la app
-    var pet = widget.mascotas.firstWhere((p) => p['id'] == petId, orElse: () => <String, dynamic>{});
-    String planName = (pet['plan_mascota'] ?? "").toString().toLowerCase().trim();
+    var pet = widget.mascotas.firstWhere(
+      (p) => p['id'] == petId,
+      orElse: () => <String, dynamic>{},
+    );
+    String planName = (pet['plan_mascota'] ?? "")
+        .toString()
+        .toLowerCase()
+        .trim();
     if (planName == 'sin plan' || planName.isEmpty) return 0;
-    
+
     for (var p in _planesActivos) {
       if (p['nombre'].toString().toLowerCase().trim() == planName) {
         return p['limite_horas'] as int;
@@ -133,59 +161,89 @@ class _CalendarioTabState extends State<CalendarioTab> {
   }
 
   Future<void> _asignarNuevoPaseo() async {
-     DateTime? fechaElegida = await showDatePicker(context: context, initialDate: _focusedDay, firstDate: DateTime.now(), lastDate: DateTime(2030));
-     if (fechaElegida == null) return;
-     
-     if (!mounted) return;
-     TimeOfDay? horaInicio = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
-     if (horaInicio == null) return;
-     
-     if (!mounted) return;
-     TimeOfDay? horaFin = await showTimePicker(context: context, initialTime: TimeOfDay(hour: horaInicio.hour + 1, minute: horaInicio.minute));
-     if (horaFin == null) return;
+    DateTime? fechaElegida = await showDatePicker(
+      context: context,
+      initialDate: _focusedDay,
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2030),
+    );
+    if (fechaElegida == null) return;
 
-     if (_selectedValue == null || !_selectedValue!.startsWith("pet_")) return;
-     var petId = int.tryParse(_selectedValue!.substring(4));
-     var pet = widget.mascotas.firstWhere((p) => p['id'] == petId, orElse: () => <String, dynamic>{});
-     if (pet['paseador'] == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Esta mascota no tiene un paseador asignado.")));
-        return;
-     }
-     var paseadorId = pet['paseador']['id'];
+    if (!mounted) return;
+    TimeOfDay? horaInicio = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (horaInicio == null) return;
 
-     try {
-       final res = await http.post(
-         Uri.parse("http://18.223.214.78:8000/asignar_paseo"),
-         headers: {"Content-Type": "application/json"},
-         body: jsonEncode({
-           "pet_id": petId,
-           "paseador_id": paseadorId,
-           "fecha": fechaElegida.toIso8601String().split('T')[0],
-           "hora_inicio": "${horaInicio.hour.toString().padLeft(2,'0')}:${horaInicio.minute.toString().padLeft(2,'0')}:00",
-           "hora_fin": "${horaFin.hour.toString().padLeft(2,'0')}:${horaFin.minute.toString().padLeft(2,'0')}:00",
-           "admin_email": _adminEmail,
-           "es_admin": _esAdmin,
-         })
-       );
-       
-       if (!mounted) return;
-       if (res.statusCode == 200) {
-         _cargarPaseos();
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Paseo asignado con éxito")));
-       } else {
-         var err = jsonDecode(res.body);
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${err['detail']}")));
-       }
-     } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Excepción subiendo paseo: $e")));
-     }
+    if (!mounted) return;
+    TimeOfDay? horaFin = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: horaInicio.hour + 1,
+        minute: horaInicio.minute,
+      ),
+    );
+    if (horaFin == null) return;
+
+    if (_selectedValue == null || !_selectedValue!.startsWith("pet_")) return;
+    var petId = int.tryParse(_selectedValue!.substring(4));
+    var pet = widget.mascotas.firstWhere(
+      (p) => p['id'] == petId,
+      orElse: () => <String, dynamic>{},
+    );
+    if (pet['paseador'] == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Esta mascota no tiene un paseador asignado."),
+        ),
+      );
+      return;
+    }
+    var paseadorId = pet['paseador']['id'];
+
+    try {
+      final res = await http.post(
+        Uri.parse("http://18.223.214.78:8000/asignar_paseo"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "pet_id": petId,
+          "paseador_id": paseadorId,
+          "fecha": fechaElegida.toIso8601String().split('T')[0],
+          "hora_inicio":
+              "${horaInicio.hour.toString().padLeft(2, '0')}:${horaInicio.minute.toString().padLeft(2, '0')}:00",
+          "hora_fin":
+              "${horaFin.hour.toString().padLeft(2, '0')}:${horaFin.minute.toString().padLeft(2, '0')}:00",
+          "admin_email": _adminEmail,
+          "es_admin": _esAdmin,
+        }),
+      );
+
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        _cargarPaseos();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Paseo asignado con éxito")),
+        );
+      } else {
+        var err = jsonDecode(res.body);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: ${err['detail']}")));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Excepción subiendo paseo: $e")));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.mascotas.isEmpty) return const Center(child: Text("Sin mascotas registradas"));
+    if (widget.mascotas.isEmpty)
+      return const Center(child: Text("Sin mascotas registradas"));
 
     return Column(
       children: [
@@ -195,15 +253,23 @@ class _CalendarioTabState extends State<CalendarioTab> {
             value: _selectedValue,
             isExpanded: true,
             items: [
-              ...widget.mascotas.map((m) => DropdownMenuItem<dynamic>(
-                value: "pet_${m['id']}", 
-                child: Text("Mascota: ${m['nombre']} - ${m['raza']}")
-              )).toList(),
+              ...widget.mascotas
+                  .map(
+                    (m) => DropdownMenuItem<dynamic>(
+                      value: "pet_${m['id']}",
+                      child: Text("Mascota: ${m['nombre']} - ${m['raza']}"),
+                    ),
+                  )
+                  .toList(),
               if (_esAdmin)
-                ..._paseadores.map((p) => DropdownMenuItem<dynamic>(
-                  value: "walker_${p['id']}",
-                  child: Text("Paseador: ${p['nombre']}")
-                )).toList()
+                ..._paseadores
+                    .map(
+                      (p) => DropdownMenuItem<dynamic>(
+                        value: "walker_${p['id']}",
+                        child: Text("Paseador: ${p['nombre']}"),
+                      ),
+                    )
+                    .toList(),
             ],
             onChanged: (v) {
               if (v != null) {
@@ -220,13 +286,16 @@ class _CalendarioTabState extends State<CalendarioTab> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 10),
               Flexible(
                 child: Text(
-                  _esAdmin 
-                    ? "Modo Admin: Agendando paseos" 
-                    : _esPaseador 
+                  _esAdmin
+                      ? "Modo Admin: Agendando paseos"
+                      : _esPaseador
                       ? "Modo Paseador: Viendo paseos asignados"
                       : "Plan de paseos usado: $_paseosUsados de $_limitePaseos horas en el mes",
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -243,7 +312,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
           focusedDay: _focusedDay,
           selectedDayPredicate: (dia) => isSameDay(_selectedDay, dia),
           onDaySelected: (s, f) {
-            setState(() { _selectedDay = s; _focusedDay = f; });
+            setState(() {
+              _selectedDay = s;
+              _focusedDay = f;
+            });
           },
           onPageChanged: (f) {
             _focusedDay = f;
@@ -251,12 +323,13 @@ class _CalendarioTabState extends State<CalendarioTab> {
           },
           eventLoader: _obtenerEventosDelDia,
           calendarStyle: CalendarStyle(
-            markerDecoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary, shape: BoxShape.circle),
+            markerDecoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.secondary,
+              shape: BoxShape.circle,
+            ),
             markersMaxCount: 4,
           ),
-          headerStyle: const HeaderStyle(
-            formatButtonVisible: false,
-          ),
+          headerStyle: const HeaderStyle(formatButtonVisible: false),
           calendarBuilders: CalendarBuilders(
             defaultBuilder: (context, day, focusedDay) {
               final eventos = _obtenerEventosDelDia(day);
@@ -270,7 +343,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(color: color, width: 1.5),
                   ),
-                  child: Text('${day.day}', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: color),
+                  ),
                 );
               }
               return null;
@@ -287,7 +363,13 @@ class _CalendarioTabState extends State<CalendarioTab> {
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(color: color, width: 2.0),
                   ),
-                  child: Text('${day.day}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  child: Text(
+                    '${day.day}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
                 );
               }
               return null;
@@ -297,24 +379,44 @@ class _CalendarioTabState extends State<CalendarioTab> {
         const Divider(),
         Expanded(
           child: ListView(
-            children: _obtenerEventosDelDia(_selectedDay ?? _focusedDay).map((evento) {
+            children: _obtenerEventosDelDia(_selectedDay ?? _focusedDay).map((
+              evento,
+            ) {
               bool isWalker = _selectedValue?.startsWith("walker_") ?? false;
               return ListTile(
                 leading: const Icon(Icons.pets, color: Colors.green),
-                title: Text(isWalker ? "Mascota: ${evento['nombre_mascota']}" : "Paseador: ${evento['nombre_paseador'] ?? 'No asignado'}"),
-                subtitle: Text("Hora: ${evento['hora_inicio']} - ${evento['hora_fin']}" + (isWalker ? "\nDueño: ${evento['nombre_dueno'] ?? 'Anónimo'}" : "")),
+                title: Text(
+                  isWalker
+                      ? "Mascota: ${evento['nombre_mascota']}"
+                      : "Paseador: ${evento['nombre_paseador'] ?? 'No asignado'}",
+                ),
+                subtitle: Text(
+                  "Hora: ${evento['hora_inicio']} - ${evento['hora_fin']}" +
+                      (isWalker
+                          ? "\nDueño: ${evento['nombre_dueno'] ?? 'Anónimo'}"
+                          : ""),
+                ),
               );
             }).toList(),
           ),
         ),
-        if (_esAdmin && _selectedValue != null && _selectedValue!.startsWith("pet_"))
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              onPressed: _asignarNuevoPaseo,
-              icon: const Icon(Icons.add_alarm),
-              label: const Text("ASIGNAR NUEVO PASEO", style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+        if (_esAdmin &&
+            _selectedValue != null &&
+            _selectedValue!.startsWith("pet_"))
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton.icon(
+                onPressed: _asignarNuevoPaseo,
+                icon: const Icon(Icons.add_alarm),
+                label: const Text(
+                  "ASIGNAR NUEVO PASEO",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+              ),
             ),
           ),
       ],

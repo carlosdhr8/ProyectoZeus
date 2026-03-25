@@ -15,6 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
   bool _isLoading = false;
 
   Future<void> _login() async {
@@ -142,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
                   TextFormField(
                     controller: _passwordController,
-                    obscureText: true,
+                    obscureText: !_isPasswordVisible,
                     decoration: InputDecoration(
                       labelText: 'CONTRASEÑA',
                       labelStyle: const TextStyle(fontWeight: FontWeight.bold),
@@ -161,6 +162,17 @@ class _LoginPageState extends State<LoginPage> {
                         borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 3),
                       ),
                       prefixIcon: Icon(Icons.lock, color: Theme.of(context).colorScheme.primary),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _isPasswordVisible = !_isPasswordVisible;
+                          });
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(height: 35),
