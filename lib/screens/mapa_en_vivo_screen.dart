@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:http/http.dart' as http;
 
 class MapaEnVivoScreen extends StatefulWidget {
   final Map paseoData;
@@ -17,10 +18,46 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
   WebSocketChannel? _channel;
   LatLng? _currentWalkerPosition;
   final MapController _mapController = MapController();
+  List<LatLng> _routePoints = [];
+  bool _isLoadingHistory = true;
 
   @override
   void initState() {
     super.initState();
+    _fetchHistory();
+    _conectarWebSocket();
+  }
+
+  Future<void> _fetchHistory() async {
+    final rawId = (widget.paseoData['id_paseo'] ?? widget.paseoData['id']).toString();
+    final cleanId = rawId.replaceAll('#', '').trim();
+    
+    try {
+      final response = await http.get(Uri.parse('http://18.223.214.78:8000/get_location_history/$cleanId'));
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          final List<LatLng> points = data.map((e) => LatLng(e['lat'], e['lng'])).toList();
+          setState(() {
+            _routePoints = points;
+            _currentWalkerPosition = points.last;
+            _isLoadingHistory = false;
+          });
+          // Esperar un momento a que el mapa cargue para centrar
+          Future.delayed(const Duration(milliseconds: 500), () {
+             if (mounted) _mapController.move(points.last, 16.0);
+          });
+        } else {
+          setState(() => _isLoadingHistory = false);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error cargando historial: $e");
+      setState(() => _isLoadingHistory = false);
+    }
+  }
+
+  void _conectarWebSocket() {
     final rawId = (widget.paseoData['id_paseo'] ?? widget.paseoData['id']).toString();
     final cleanId = rawId.replaceAll('#', '').trim();
     final url = '${widget.serverUrl}/ws/paseo/$cleanId'.replaceAll('#', '').trim();
@@ -35,8 +72,8 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
           final newMarker = LatLng(data['lat'], data['lng']);
           setState(() {
             _currentWalkerPosition = newMarker;
+            _routePoints.add(newMarker);
           });
-          // Solo mover si el marcador ya existía o si es la primera vez que se carga
           _mapController.move(newMarker, 16.0); 
         }
       } catch (e) {
@@ -55,48 +92,62 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Rastreando: ${widget.paseoData['nombre_mascota'] ?? 'Mascota'}")),
-      body: _currentWalkerPosition == null
-          ? const Center(
-              child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 20),
-                Text("Esperando que el paseador inicie el recorrido...", style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ))
-          : FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _currentWalkerPosition!,
-                initialZoom: 16.0,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                  subdomains: const ['a', 'b', 'c', 'd'],
-                  userAgentPackageName: 'com.zeus.pet_care_app',
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _currentWalkerPosition!,
-                      width: 60,
-                      height: 60,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Theme.of(context).colorScheme.primary, width: 3),
-                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1)],
-                        ),
-                        child: Icon(Icons.pets, color: Theme.of(context).colorScheme.primary, size: 30),
-                      ),
+      body: _isLoadingHistory
+          ? const Center(child: CircularProgressIndicator())
+          : (_currentWalkerPosition == null && _routePoints.isEmpty)
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 20),
+                      Text("Esperando que el paseador inicie el recorrido...",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                )
+              : FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _currentWalkerPosition ?? const LatLng(0, 0),
+                    initialZoom: 16.0,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      userAgentPackageName: 'com.zeus.pet_care_app',
                     ),
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: _routePoints,
+                          color: Colors.blue,
+                          strokeWidth: 4,
+                        ),
+                      ],
+                    ),
+                    if (_currentWalkerPosition != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _currentWalkerPosition!,
+                            width: 60,
+                            height: 60,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Theme.of(context).colorScheme.primary, width: 3),
+                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, spreadRadius: 1)],
+                              ),
+                              child: Icon(Icons.pets, color: Theme.of(context).colorScheme.primary, size: 30),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
-              ],
-            ),
     );
   }
 }

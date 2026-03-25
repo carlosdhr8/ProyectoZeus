@@ -243,7 +243,16 @@ def login(user: LoginRequest):
             }
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     finally:
-        if conn: conn.close()
+        # --- Limpieza automática de historial de más de 7 días ---
+        try:
+            if conn and cursor: # Ensure conn and cursor exist before trying to use them
+                cursor.execute("DELETE FROM HistorialPaseos WHERE fecha_registro < DATEADD(day, -7, GETDATE())")
+                conn.commit()
+        except Exception as e:
+            # Log the error but don't prevent login from completing
+            print(f"Error during cleanup of HistorialPaseos: {e}")
+        finally:
+            if conn: conn.close()
 
 @app.post("/register")
 def register(user: RegisterRequest):
@@ -806,6 +815,19 @@ class ConnectionManager:
         # Guardamos como última posición conocida
         self.last_positions[paseo_id] = message
         
+        # Guardar en base de datos para el historial
+        try:
+            conn = pyodbc.connect(conn_str)
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO HistorialPaseos (paseo_id, lat, lng) VALUES (?, ?, ?)",
+                (paseo_id, message.get('lat'), message.get('lng'))
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error guardando historial: {e}")
+
         if paseo_id in self.active_connections:
             for connection in self.active_connections[paseo_id]:
                 try:
@@ -821,6 +843,17 @@ async def websocket_paseo(websocket: WebSocket, paseo_id: str):
     clean_id_str = str(paseo_id).replace('#', '').strip()
     try:
         p_id = int(clean_id_str)
+        # Validar si el paseo es para hoy
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("SELECT fecha_paseo FROM Paseos WHERE id_paseo = ?", (p_id,))
+        row = cursor.fetchone()
+        if row:
+            fecha_paseo = row[0]
+            if str(fecha_paseo) != str(date.today()):
+                await websocket.close(code=1008) # Policy Violation
+                return
+        conn.close()
     except ValueError:
         await websocket.close(code=1003) # Invalid data
         return
@@ -832,3 +865,38 @@ async def websocket_paseo(websocket: WebSocket, paseo_id: str):
             await manager.broadcast(data, p_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, p_id)
+
+@app.get("/get_location_history/{paseo_id}")
+async def get_location_history(paseo_id: int):
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT lat, lng, fecha_registro FROM HistorialPaseos WHERE paseo_id = ? ORDER BY fecha_registro ASC",
+            (paseo_id,)
+        )
+        history = []
+        for row in cursor.fetchall():
+            history.append({
+                "lat": row[0],
+                "lng": row[1],
+                "timestamp": row[2].isoformat() if hasattr(row[2], 'isoformat') else str(row[2])
+            })
+        conn.close()
+        return history
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/cleanup_old_locations")
+async def cleanup_old_locations():
+    """Borra coordenadas de más de 7 días"""
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM HistorialPaseos WHERE fecha_registro < DATEADD(day, -7, GETDATE())")
+        conn.commit()
+        deleted_count = cursor.rowcount
+        conn.close()
+        return {"status": "success", "deleted_records": deleted_count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -404,8 +404,20 @@ class _CalendarioTabState extends State<CalendarioTab> {
                 ),
                 trailing: ElevatedButton.icon(
                   onPressed: () {
+                    final DateTime fechaPaseo = DateTime.parse(evento['fecha_paseo'].toString());
+                    final DateTime hoy = DateTime.now();
+                    final bool esHabilitadoPaseador = isSameDay(fechaPaseo, hoy);
+                    final int diasDiferencia = hoy.difference(fechaPaseo).inDays;
+                    final bool expiroHistorial = diasDiferencia > 7;
+
                     try {
                       if (_esPaseador) {
+                        if (!esHabilitadoPaseador) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Solo puedes iniciar paseos programados para hoy."))
+                          );
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -420,6 +432,12 @@ class _CalendarioTabState extends State<CalendarioTab> {
                           );
                         });
                       } else {
+                        if (expiroHistorial) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("El historial de ubicación de este paseo ha expirado (máximo 7 días)."))
+                          );
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(

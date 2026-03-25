@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/paseo_service.dart';
+import '../screens/paseo_activo_screen.dart';
 import 'tabs/mascotas_tab.dart';
 import 'tabs/paseadores_tab.dart';
 import 'tabs/perfil_tab.dart';
@@ -64,8 +66,54 @@ class _WelcomePageState extends State<WelcomePage> {
             tabs: misTabs,
           ),
         ),
-        body: TabBarView(
-          children: misVistas,
+        body: Column(
+          children: [
+            // Indicador de Paseo en curso (solo para paseadores)
+            StreamBuilder<bool>(
+              stream: PaseoService().statusStream,
+              initialData: PaseoService().isTransmitting,
+              builder: (context, snapshot) {
+                if (snapshot.data == true) {
+                  return Container(
+                    color: Colors.amber[700],
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.directions_walk, color: Colors.white),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            "CAMINATA EN CURSO",
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PaseoActivoScreen(
+                                  paseoData: PaseoService().activePaseoData!,
+                                  serverUrl: 'ws://18.223.214.78:8000',
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text("VER", style: TextStyle(color: Colors.white, decoration: TextDecoration.underline)),
+                        )
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            Expanded(
+              child: TabBarView(
+                children: misVistas,
+              ),
+            ),
+          ],
         ),
       ),
     );
