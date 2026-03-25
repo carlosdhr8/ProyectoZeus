@@ -369,25 +369,28 @@ class _MascotasTabState extends State<MascotasTab> {
 
   Widget _zeusTag(String titulo, String desc, BuildContext context, {bool isHighlight = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       decoration: BoxDecoration(
         color: isHighlight ? Theme.of(context).colorScheme.secondary : Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF1E211F), width: 1.5),
         boxShadow: const [BoxShadow(color: Color(0xFF1E211F), offset: Offset(2, 2))],
       ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
               titulo.toUpperCase(),
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 2),
-            Text(
+          ),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
               desc,
               style: TextStyle(
                 fontSize: 13,
@@ -396,8 +399,8 @@ class _MascotasTabState extends State<MascotasTab> {
               ),
               textAlign: TextAlign.center,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
