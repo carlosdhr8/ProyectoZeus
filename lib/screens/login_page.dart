@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'welcome_page.dart';
 import 'register_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,6 +18,45 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarCredenciales();
+  }
+
+  Future<void> _cargarCredenciales() async {
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('remember_email');
+    final pass = prefs.getString('remember_password');
+    final remember = prefs.getBool('remember_me') ?? false;
+
+    if (remember && email != null && pass != null) {
+      if (mounted) {
+        setState(() {
+          _emailController.text = email;
+          _passwordController.text = pass;
+          _rememberMe = true;
+        });
+        // Intentar auto-login si hay datos
+        _login();
+      }
+    }
+  }
+
+  Future<void> _guardarCredenciales() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberMe) {
+      await prefs.setString('remember_email', _emailController.text);
+      await prefs.setString('remember_password', _passwordController.text);
+      await prefs.setBool('remember_me', true);
+    } else {
+      await prefs.remove('remember_email');
+      await prefs.remove('remember_password');
+      await prefs.setBool('remember_me', false);
+    }
+  }
 
   Future<void> _login() async {
     setState(() { _isLoading = true; });
@@ -38,6 +78,10 @@ class _LoginPageState extends State<LoginPage> {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (!mounted) return;
 
+        // Guardar credenciales si corresponde
+        await _guardarCredenciales();
+
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -175,7 +219,29 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 35),
+                  const SizedBox(height: 10),
+                  
+                  // Checkbox Recordar información
+                  Theme(
+                    data: ThemeData(unselectedWidgetColor: const Color(0xFF1E211F)),
+                    child: CheckboxListTile(
+                      title: const Text(
+                        "RECORDAR MI SESIÓN",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
+                      ),
+                      value: _rememberMe,
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      checkColor: Colors.white,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          _rememberMe = value ?? false;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 25),
 
                   // Botón de Ingreso Estilo Zeus
                   _isLoading 

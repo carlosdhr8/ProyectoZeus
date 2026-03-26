@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/image_viewer_dialog.dart';
+import '../../services/paseo_service.dart';
 import '../login_page.dart';
 
 class PerfilTab extends StatefulWidget {
@@ -330,11 +332,23 @@ class _PerfilTabState extends State<PerfilTab> {
                     side: const BorderSide(color: Color(0xFF1E211F), width: 2),
                   ),
                 ),
-                onPressed: () => Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                ),
+                onPressed: () async {
+                  // Parar GPS antes de salir si hay algo activo
+                  PaseoService().stopPaseo();
+                  
+                  // Limpiar persistencia de login para permitir cambio de cuenta
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('remember_me', false);
+                  await prefs.remove('remember_email');
+                  await prefs.remove('remember_password');
+                  
+                  if (!context.mounted) return;
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
+                },
                 icon: const Icon(Icons.logout, color: Colors.white),
                 label: const FittedBox(
                   fit: BoxFit.scaleDown,

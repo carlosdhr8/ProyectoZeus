@@ -73,7 +73,7 @@ class _WelcomePageState extends State<WelcomePage> {
               stream: PaseoService().statusStream,
               initialData: PaseoService().isTransmitting,
               builder: (context, snapshot) {
-                if (snapshot.data == true) {
+                if (snapshot.data == true && esPaseador) {
                   return Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Container(

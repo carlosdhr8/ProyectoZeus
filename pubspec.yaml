@@ -23,6 +23,7 @@ dependencies:
   web_socket_channel: ^3.0.3
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
+  shared_preferences: ^2.5.2
 
 dev_dependencies:
   flutter_test:

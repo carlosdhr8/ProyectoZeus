@@ -48,7 +48,9 @@ class PaseoService {
 
     final locationSettings = AndroidSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
+      distanceFilter: 5, // Filtro de distancia (5 metros)
+      intervalDuration: const Duration(seconds: 5), // "Latido" cada 5 seg para mantener vivo el servicio
+      forceLocationManager: true, // Ayuda en dispositivos con gestión de energía agresiva
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: "Paseo en Curso",
         notificationText: "Zeus Pet App está rastreando el recorrido de la mascota.",

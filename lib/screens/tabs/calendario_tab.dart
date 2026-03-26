@@ -402,68 +402,90 @@ class _CalendarioTabState extends State<CalendarioTab> {
                           ? "\nDueño: ${evento['nombre_dueno'] ?? 'Anónimo'}"
                           : ""),
                 ),
-                trailing: ElevatedButton.icon(
-                  onPressed: () {
-                    final DateTime fechaPaseo = DateTime.parse(evento['fecha_paseo'].toString());
+                trailing: Builder(
+                  builder: (context) {
+                    final DateTime fechaPaseoVal = DateTime.parse(evento['fecha_paseo'].toString());
                     final DateTime hoy = DateTime.now();
-                    final bool esHabilitadoPaseador = isSameDay(fechaPaseo, hoy);
-                    final int diasDiferencia = hoy.difference(fechaPaseo).inDays;
-                    final bool expiroHistorial = diasDiferencia > 7;
+                    final DateTime hoySinHora = DateTime(hoy.year, hoy.month, hoy.day);
+                    final bool esFechaPasada = fechaPaseoVal.isBefore(hoySinHora);
 
-                    try {
-                      if (_esPaseador) {
-                        if (!esHabilitadoPaseador) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Solo puedes iniciar paseos programados para hoy."))
-                          );
-                          return;
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PaseoActivoScreen(
-                              paseoData: evento as Map<String, dynamic>,
-                              serverUrl: 'ws://18.223.214.78:8000',
-                            ),
-                          ),
-                        ).catchError((e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Error al abrir pantalla paseador: $e"))
-                          );
-                        });
-                      } else {
-                        if (expiroHistorial) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("El historial de ubicación de este paseo ha expirado (máximo 7 días)."))
-                          );
-                          return;
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => MapaEnVivoScreen(
-                              paseoData: evento as Map<String, dynamic>,
-                              serverUrl: 'ws://18.223.214.78:8000',
-                            ),
-                          ),
-                        ).catchError((e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Error al abrir mapa: $e"))
-                          );
-                        });
-                      }
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Error de navegación: $e"))
+                    if (_esPaseador && esFechaPasada) {
+                      return const SizedBox(
+                        width: 80,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.grey, size: 22),
+                            Text("FINALIZADO", style: TextStyle(color: Colors.grey, fontSize: 9, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       );
                     }
-                  },
-                  icon: Icon(_esPaseador ? Icons.play_arrow : Icons.map, size: 18),
-                  label: Text(_esPaseador ? "INICIAR" : "VER MAPA"),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
+
+                    return ElevatedButton.icon(
+                      onPressed: () {
+                        final DateTime fechaPaseo = DateTime.parse(evento['fecha_paseo'].toString());
+                        final DateTime hoy = DateTime.now();
+                        final bool esHabilitadoPaseador = isSameDay(fechaPaseo, hoy);
+                        final int diasDiferencia = hoy.difference(fechaPaseo).inDays;
+                        final bool expiroHistorial = diasDiferencia > 7;
+
+                        try {
+                          if (_esPaseador) {
+                            if (!esHabilitadoPaseador) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Solo puedes iniciar paseos programados para hoy."))
+                              );
+                              return;
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PaseoActivoScreen(
+                                  paseoData: evento as Map<String, dynamic>,
+                                  serverUrl: 'ws://18.223.214.78:8000',
+                                ),
+                              ),
+                            ).catchError((e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Error al abrir pantalla paseador: $e"))
+                              );
+                            });
+                          } else {
+                            if (expiroHistorial) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("El historial de ubicación de este paseo ha expirado (máximo 7 días)."))
+                              );
+                              return;
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MapaEnVivoScreen(
+                                  paseoData: evento as Map<String, dynamic>,
+                                  serverUrl: 'ws://18.223.214.78:8000',
+                                ),
+                              ),
+                            ).catchError((e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Error al abrir mapa: $e"))
+                              );
+                            });
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Error de navegación: $e"))
+                          );
+                        }
+                      },
+                      icon: Icon(_esPaseador ? Icons.play_arrow : Icons.map, size: 18),
+                      label: Text(_esPaseador ? "INICIAR" : "VER MAPA"),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    );
+                  }
                 ),
               );
             }).toList(),
