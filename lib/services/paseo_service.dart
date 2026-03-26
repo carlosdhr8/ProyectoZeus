@@ -11,10 +11,12 @@ class PaseoService {
 
   WebSocketChannel? _channel;
   StreamSubscription<Position>? _positionStream;
+  Timer? _heartbeatTimer;
   Map? _activePaseoData;
   bool _isTransmitting = false;
 
-  final StreamController<bool> _statusController = StreamController<bool>.broadcast();
+  final StreamController<bool> _statusController =
+      StreamController<bool>.broadcast();
   Stream<bool> get statusStream => _statusController.stream;
 
   bool get isTransmitting => _isTransmitting;
@@ -24,12 +26,12 @@ class PaseoService {
     if (_isTransmitting) return;
 
     _activePaseoData = paseoData;
-    
+
     // Conectar WebSocket
     final rawId = (paseoData['id_paseo'] ?? paseoData['id']).toString();
     final cleanId = rawId.replaceAll('#', '').trim();
     final url = '$serverUrl/ws/paseo/$cleanId'.replaceAll('#', '').trim();
-    
+
     _channel = WebSocketChannel.connect(Uri.parse(url));
 
     // Iniciar GPS
@@ -37,10 +39,12 @@ class PaseoService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    
+
     // Enviar posición inicial
     try {
-      Position current = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position current = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
       _enviarCoordenadas(current);
     } catch (e) {
       debugPrint("Error GPS inicial: $e");
@@ -48,9 +52,8 @@ class PaseoService {
 
     final locationSettings = AndroidSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // Filtro de distancia (5 metros)
-      intervalDuration: const Duration(seconds: 5), // "Latido" cada 5 seg para mantener vivo el servicio
-      forceLocationManager: true, // Ayuda en dispositivos con gestión de energía agresiva
+      distanceFilter: 5, // Mantener para actualizaciones por movimiento
+      forceLocationManager: true, 
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: "Paseo en Curso",
         notificationText: "Zeus Pet App está rastreando el recorrido de la mascota.",
@@ -63,6 +66,16 @@ class PaseoService {
       _enviarCoordenadas(position);
     });
 
+    // Nueva lógica: Heartbeat cada 30 segundos (Garantizado)
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      try {
+        Position current = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+        _enviarCoordenadas(current);
+      } catch (e) {
+        debugPrint("Error en heartbeat GPS: $e");
+      }
+    });
+
     _isTransmitting = true;
     _statusController.add(true);
   }
@@ -73,7 +86,7 @@ class PaseoService {
         "lat": position.latitude,
         "lng": position.longitude,
         "timestamp": DateTime.now().toIso8601String(),
-        "status": "active"
+        "status": "active",
       };
       _channel!.sink.add(jsonEncode(data));
     }
@@ -81,6 +94,7 @@ class PaseoService {
 
   void stopPaseo() {
     _positionStream?.cancel();
+    _heartbeatTimer?.cancel();
     _channel?.sink.close();
     _isTransmitting = false;
     _activePaseoData = null;
