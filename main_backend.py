@@ -66,6 +66,10 @@ class UpdateUserRoleRequest(BaseModel):
     user_id: int
     nuevo_rol: str
 
+class UpdatePaseoStatusRequest(BaseModel):
+    id_paseo: int
+    nuevo_estado: str # 'Pendiente', 'En Curso', 'Finalizado'
+
 class UpdateWalkerInfoRequest(BaseModel):
     usuario_id: int
     experiencia: str
@@ -596,7 +600,7 @@ def asignar_paseo(req: PaseoRequest):
             raise HTTPException(status_code=400, detail=f"Límite de {limite_horas} horas alcanzado. La mascota debe renovar su plan para seguir sumando paseos.")
 
         cursor.execute(
-            "INSERT INTO Paseos (pet_id, paseador_id, fecha_paseo, hora_inicio, hora_fin, creado_por_admin, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?, GETDATE())",
+            "INSERT INTO Paseos (pet_id, paseador_id, fecha_paseo, hora_inicio, hora_fin, creado_por_admin, fecha_creacion, estado) VALUES (?, ?, ?, ?, ?, ?, GETDATE(), 'Pendiente')",
             (req.pet_id, req.paseador_id, req.fecha.strftime('%Y-%m-%d'), req.hora_inicio.strftime('%H:%M:%S'), req.hora_fin.strftime('%H:%M:%S'), req.admin_email)
         )
         # SE ELIMINÓ LA ACTUALIZACIÓN AUTOMÁTICA A "SIN PLAN".
@@ -617,7 +621,7 @@ def mis_paseos(pet_id: int, anio: int, mes: int):
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT p.id_paseo as id, p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, u.nombre_completo as nombre_paseador
+            SELECT p.id_paseo as id, p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, u.nombre_completo as nombre_paseador, p.estado
             FROM Paseos p
             JOIN Paseadores u ON p.paseador_id = u.id
             WHERE p.pet_id = ? AND MONTH(p.fecha_paseo) = ? AND YEAR(p.fecha_paseo) = ?
@@ -645,7 +649,7 @@ def paseador_agenda(paseador_id: int, anio: int, mes: int):
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT p.id_paseo as id, p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, m.nombre as nombre_mascota, m.usuario_email as nombre_dueno
+            SELECT p.id_paseo as id, p.id_paseo, p.fecha_paseo, p.hora_inicio, p.hora_fin, m.nombre as nombre_mascota, m.usuario_email as nombre_dueno, p.estado
             FROM Paseos p
             JOIN Mascotas m ON p.pet_id = m.id
             WHERE p.paseador_id = ? AND MONTH(p.fecha_paseo) = ? AND YEAR(p.fecha_paseo) = ?
@@ -662,6 +666,21 @@ def paseador_agenda(paseador_id: int, anio: int, mes: int):
         
         return {"mes": mes, "anio": anio, "paseos": pasos}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn: conn.close()
+
+@app.post("/update_paseo_status")
+def update_paseo_status(req: UpdatePaseoStatusRequest):
+    conn = None
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Paseos SET estado = ? WHERE id_paseo = ?", (req.nuevo_estado, req.id_paseo))
+        conn.commit()
+        return {"status": "success", "message": f"Estado del paseo actualizado a {req.nuevo_estado}"}
+    except Exception as e:
+        if conn: conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: conn.close()
@@ -840,20 +859,27 @@ class ConnectionManager:
                 del self.active_connections[paseo_id]
 
     async def broadcast(self, message: dict, paseo_id: int):
-        # Identificar paseos hermanos (otros paseos del mismo paseador hoy)
+        # Identificar paseos hermanos (otros paseos del mismo paseador hoy que son simuntáneos)
         siblings = []
         try:
             conn_sib = pyodbc.connect(conn_str)
             cursor_sib = conn_sib.cursor()
+            # Añadimos un buffer de 30 minutos antes y después para mayor flexibilidad
+            now_plus_30 = (datetime.now() + timedelta(minutes=30)).time()
+            now_minus_30 = (datetime.now() - timedelta(minutes=30)).time()
+            
             cursor_sib.execute("""
                 SELECT id_paseo FROM Paseos 
                 WHERE paseador_id = (SELECT paseador_id FROM Paseos WHERE id_paseo = ?)
                 AND fecha_paseo = CAST(GETDATE() AS DATE)
+                AND hora_inicio <= ? 
+                AND hora_fin >= ?
                 AND id_paseo != ?
-            """, (paseo_id, paseo_id))
+            """, (paseo_id, now_plus_30.strftime('%H:%M:%S'), now_minus_30.strftime('%H:%M:%S'), paseo_id))
             siblings = [r[0] for r in cursor_sib.fetchall()]
             conn_sib.close()
-        except:
+        except Exception as e:
+            print(f"Error detectando hermanos: {e}")
             pass
 
         all_affected_ids = [paseo_id] + siblings

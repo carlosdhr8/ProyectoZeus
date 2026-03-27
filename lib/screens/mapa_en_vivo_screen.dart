@@ -29,11 +29,17 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
   }
 
   Future<void> _fetchHistory() async {
+    setState(() {
+      _routePoints = [];
+      _isLoadingHistory = true;
+    });
+    
     final rawId = (widget.paseoData['id_paseo'] ?? widget.paseoData['id']).toString();
     final cleanId = rawId.replaceAll('#', '').trim();
+    final baseUrl = widget.serverUrl.replaceAll('ws://', 'http://').replaceAll('wss://', 'https://');
     
     try {
-      final response = await http.get(Uri.parse('http://18.223.214.78:8000/get_location_history/$cleanId'));
+      final response = await http.get(Uri.parse('$baseUrl/get_location_history/$cleanId'));
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         if (data.isNotEmpty) {
@@ -43,7 +49,6 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
             _currentWalkerPosition = points.last;
             _isLoadingHistory = false;
           });
-          // Esperar un momento a que el mapa cargue para centrar
           Future.delayed(const Duration(milliseconds: 500), () {
              if (mounted) _mapController.move(points.last, 16.0);
           });
@@ -118,22 +123,20 @@ class _MapaEnVivoScreenState extends State<MapaEnVivoScreen> {
                       subdomains: const ['a', 'b', 'c', 'd'],
                       userAgentPackageName: 'com.zeus.pet_care_app',
                   ),
-                  // Estela de patitas (historial)
-                  MarkerLayer(
-                    markers: _routePoints.asMap().entries.where((entry) {
-                      // Solo dibujar una patita cada 3 puntos para no saturar el mapa
-                      return entry.key % 3 == 0;
+                    MarkerLayer(
+                      markers: _routePoints.asMap().entries.where((entry) {
+                        return entry.key % 2 == 0;
                     }).map((entry) {
-                      return Marker(
-                        point: entry.value,
-                        width: 20,
-                        height: 20,
-                        child: Icon(
-                          Icons.pets,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.primary.withAlpha(150),
-                        ),
-                      );
+                        return Marker(
+                          point: entry.value,
+                          width: 35,
+                          height: 35,
+                          child: Icon(
+                            Icons.pets,
+                            size: 24,
+                            color: Theme.of(context).colorScheme.primary, 
+                          ),
+                        );
                     }).toList(),
                   ),
                   if (_currentWalkerPosition != null)

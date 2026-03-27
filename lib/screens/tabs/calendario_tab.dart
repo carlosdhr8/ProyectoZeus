@@ -404,14 +404,17 @@ class _CalendarioTabState extends State<CalendarioTab> {
                 ),
                 trailing: Builder(
                   builder: (context) {
+                    final String estado = (evento['estado'] ?? 'Pendiente').toString();
                     final DateTime fechaPaseoVal = DateTime.parse(evento['fecha_paseo'].toString());
                     final DateTime hoy = DateTime.now();
                     final DateTime hoySinHora = DateTime(hoy.year, hoy.month, hoy.day);
+                    final bool esHabilitadoPaseador = isSameDay(fechaPaseoVal, hoy);
                     final bool esFechaPasada = fechaPaseoVal.isBefore(hoySinHora);
 
-                    if (_esPaseador && esFechaPasada) {
+                    // Si el estado es Finalizado, mostrar etiqueta estática
+                    if (estado == 'Finalizado' || (_esPaseador && esFechaPasada)) {
                       return const SizedBox(
-                        width: 80,
+                        width: 90,
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -422,19 +425,32 @@ class _CalendarioTabState extends State<CalendarioTab> {
                       );
                     }
 
+                    // Botón dinámico
+                    String label = "VER MAPA";
+                    IconData icon = Icons.map;
+                    Color? btnColor;
+
+                    if (_esPaseador) {
+                      if (estado == 'En Curso') {
+                        label = "CONTINUAR";
+                        icon = Icons.play_arrow;
+                        btnColor = Colors.orange;
+                      } else {
+                        label = "INICIAR";
+                        icon = Icons.play_arrow;
+                      }
+                    }
+
                     return ElevatedButton.icon(
                       onPressed: () {
-                        final DateTime fechaPaseo = DateTime.parse(evento['fecha_paseo'].toString());
-                        final DateTime hoy = DateTime.now();
-                        final bool esHabilitadoPaseador = isSameDay(fechaPaseo, hoy);
-                        final int diasDiferencia = hoy.difference(fechaPaseo).inDays;
+                        final int diasDiferencia = hoy.difference(fechaPaseoVal).inDays;
                         final bool expiroHistorial = diasDiferencia > 7;
 
                         try {
                           if (_esPaseador) {
                             if (!esHabilitadoPaseador) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Solo puedes iniciar paseos programados para hoy."))
+                                const SnackBar(content: Text("Solo puedes gestionar paseos programados para hoy."))
                               );
                               return;
                             }
@@ -446,13 +462,9 @@ class _CalendarioTabState extends State<CalendarioTab> {
                                   serverUrl: 'ws://18.223.214.78:8000',
                                 ),
                               ),
-                            ).catchError((e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("Error al abrir pantalla paseador: $e"))
-                              );
-                            });
+                            ).then((_) => _cargarPaseos()); // Recargar al volver
                           } else {
-                            if (expiroHistorial) {
+                            if (expiroHistorial && estado == 'Finalizado') {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text("El historial de ubicación de este paseo ha expirado (máximo 7 días)."))
                               );
@@ -466,11 +478,7 @@ class _CalendarioTabState extends State<CalendarioTab> {
                                   serverUrl: 'ws://18.223.214.78:8000',
                                 ),
                               ),
-                            ).catchError((e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("Error al abrir mapa: $e"))
-                              );
-                            });
+                            );
                           }
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -478,9 +486,10 @@ class _CalendarioTabState extends State<CalendarioTab> {
                           );
                         }
                       },
-                      icon: Icon(_esPaseador ? Icons.play_arrow : Icons.map, size: 18),
-                      label: Text(_esPaseador ? "INICIAR" : "VER MAPA"),
+                      icon: Icon(icon, size: 18),
+                      label: Text(label),
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: btnColor,
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                         textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       ),

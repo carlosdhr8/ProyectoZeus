@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:http/http.dart' as http;
 
 class PaseoService {
   static final PaseoService _instance = PaseoService._internal();
@@ -12,6 +13,7 @@ class PaseoService {
   WebSocketChannel? _channel;
   StreamSubscription<Position>? _positionStream;
   Timer? _heartbeatTimer;
+  String? _currentServerUrl;
   Map? _activePaseoData;
   bool _isTransmitting = false;
 
@@ -32,6 +34,7 @@ class PaseoService {
     final cleanId = rawId.replaceAll('#', '').trim();
     final url = '$serverUrl/ws/paseo/$cleanId'.replaceAll('#', '').trim();
 
+    _currentServerUrl = serverUrl;
     _channel = WebSocketChannel.connect(Uri.parse(url));
 
     // Iniciar GPS
@@ -50,23 +53,14 @@ class PaseoService {
       debugPrint("Error GPS inicial: $e");
     }
 
-    final locationSettings = AndroidSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // Mantener para actualizaciones por movimiento
-      forceLocationManager: true, 
-      foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationTitle: "Paseo en Curso",
-        notificationText: "Zeus Pet App está rastreando el recorrido de la mascota.",
-        notificationIcon: AndroidResource(name: 'launcher_icon'),
-        enableWakeLock: true,
-      ),
-    );
-
+    // Eliminado el stream por movimiento para usar solo el temporizador de 30s
+    /*
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings).listen((Position position) {
       _enviarCoordenadas(position);
     });
+    */
 
-    // Nueva lógica: Heartbeat cada 30 segundos (Garantizado)
+    // Lógica única: Envío de ubicación cada 30 segundos (Pedido por usuario)
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       try {
         Position current = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
@@ -89,6 +83,27 @@ class PaseoService {
         "status": "active",
       };
       _channel!.sink.add(jsonEncode(data));
+    }
+  }
+
+  Future<bool> updatePaseoStatus(int paseoId, String nuevoEstado) async {
+    if (_currentServerUrl == null) return false;
+    final baseUrl = _currentServerUrl!
+        .replaceAll('ws://', 'http://')
+        .replaceAll('wss://', 'https://');
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/update_paseo_status'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "id_paseo": paseoId,
+          "nuevo_estado": nuevoEstado,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error actualizando estado del paseo: $e");
+      return false;
     }
   }
 
