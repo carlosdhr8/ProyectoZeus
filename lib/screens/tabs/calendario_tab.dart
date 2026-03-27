@@ -411,8 +411,9 @@ class _CalendarioTabState extends State<CalendarioTab> {
                     final bool esHabilitadoPaseador = isSameDay(fechaPaseoVal, hoy);
                     final bool esFechaPasada = fechaPaseoVal.isBefore(hoySinHora);
 
-                    // Si el estado es Finalizado, mostrar etiqueta estática
-                    if (estado == 'Finalizado' || (_esPaseador && esFechaPasada)) {
+                    // El Paseador ve "FINALIZADO" si el estado es tal o la fecha pasó.
+                    // El Dueño/Admin siempre debe poder ver el mapa si el paseo ya tiene puntos (ya se inició o finalizó).
+                    if (_esPaseador && (estado == 'Finalizado' || esFechaPasada)) {
                       return const SizedBox(
                         width: 90,
                         child: Column(
